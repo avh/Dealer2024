@@ -5,13 +5,7 @@
 #include "angle.h"
 #include "sensor.h"
 #include "eject.h"
-#include "network.h"
-#include <ArduinoBLE.h>
-
-#define BLE_UUID  "19b10000-e8f2-537e-4f6c-d104768a1214"
-BLEService ledService(BLE_UUID); // Bluetooth® Low Energy LED Service
-BLEByteCharacteristic switchCharacteristic(BLE_UUID, BLERead | BLEWrite);
-
+#include "webserver.h"
 
 // Components
 Motor motor1("Motor1", M1_PIN1, M1_PIN2, 400, 10000);

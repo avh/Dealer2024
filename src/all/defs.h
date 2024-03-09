@@ -4,6 +4,7 @@
 
 #define USE_SERIAL          1
 #define SERIAL_SPEED        115200
+#define USE_WIFI            1
 
 #define CAMERA_ADDR         0x1A
 
@@ -32,5 +33,5 @@
 //
 // Camera Pins
 //
-#define LIGHT_PIN     GPIO_NUM_9
-#define LED_CAPTURE   D9
+#define LIGHT_PIN     GPIO_NUM_44
+#define LED_CAPTURE   D6

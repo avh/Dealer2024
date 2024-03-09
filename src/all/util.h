@@ -2,7 +2,6 @@
 #pragma once
 
 #include <Arduino.h>
-#include <Wire.h>
 #include <stdarg.h>
 #include <cstdio>
 #include "defs.h"

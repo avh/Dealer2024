@@ -1,11 +1,13 @@
 #include <Arduino.h>
 #include <Wire.h>
 #include "util.h"
-#include "network.h"
+#include "webserver.h"
 #include "light.h"
+#include "sdcard.h"
 
 LEDArray<LIGHT_PIN> light("camera-light", 8, 16);
-WiFiNetwork wifi;
+WebServer www;
+SDCard sdcard;
 
 class Idler : public IdleComponent {
   public:
@@ -20,7 +22,7 @@ class Idler : public IdleComponent {
       } else {
         light.on(100);
       }
-      dprintf("%5d: %s, light=%d", i++, name, light.value);
+      dprintf("%5d: %s, wifi=%d, light=%d", i++, name, www.connected, light.value);
     }
 } idler;
 

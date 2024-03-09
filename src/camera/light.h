@@ -24,7 +24,6 @@ class LEDArray : public IdleComponent {
     }
 
     void setRGB(int r, int g, int b) {
-      dprintf("setRGB %d %d %d", r, g, b);
         for (int i = 0; i < nleds; i++) {
             leds[i] = CRGB(r, g, b);
         }
