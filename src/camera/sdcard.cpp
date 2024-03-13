@@ -17,14 +17,15 @@ void SDCard::init()
         dprintf("SD: no card found");
         return;
     }
-    uint64_t cardSize = SD.cardSize() / (1024 * 1024);
+    //uint64_t cardSize = SD.cardSize() / (1024 * 1024);
     //dprintf("SD: mounted, %llu MB", cardSize);
 
     WebServer::add("/list", [](HTTP &http) {
-        http.begin(200, "List Follows");
-        http.end();
+        http.header(200, "List Follows");
+        http.body();
         http.printf("--- listing ---\n");
         handle_listdir(http, "/");
+        http.close();
     });
 }
 
@@ -53,7 +54,7 @@ void SDCard::handle_listdir(HTTP &http, const char *path, int depth)
                     handle_listdir(http, buf, depth + 1);
                 }
             } else {
-                http.printf("%s\n", file.name());
+                http.printf("%-20s %6d\n", file.name(), file.size());
             }
         }
     }

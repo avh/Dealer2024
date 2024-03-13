@@ -5,7 +5,6 @@
 #define FASTLED_INTERNAL
 #include <FastLED.h>
 
-template <int PIN>
 class LEDArray : public IdleComponent {
   public:
     int nleds;
@@ -20,7 +19,8 @@ class LEDArray : public IdleComponent {
         IdleComponent(name, 5000), nleds(nleds), brightness(brightness), leds(new CRGB[nleds]) {
     }
     virtual void init() {
-      FastLED.addLeds<WS2812, PIN>(leds, nleds);
+      FastLED.addLeds<WS2812, LIGHT_PIN>(leds, nleds);
+      off();
     }
 
     void setRGB(int r, int g, int b) {

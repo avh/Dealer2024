@@ -47,11 +47,11 @@ static void wifi_report()
 // HTTP Server
 //
 
-static struct {
+struct Handler {
   const char *path;
   void (*handler)(HTTP &);
-} handlers[MAX_HANDLERS];
-static int nhandlers = 0;
+};
+static std::vector<Handler> handlers;
 
 void WebServer::init()
 {
@@ -69,8 +69,16 @@ void WebServer::idle(unsigned long now)
         // connected, check for traffic
         WiFiClient client = server.available();
         if (client) {
-            handle(client);
-            client.stop();
+          dprintf("wifi: new client");
+          active.push_back(std::unique_ptr<HTTP>(new HTTP(client)));
+        }
+        for (auto it = active.begin() ; it != active.end() ; ) {
+          if ((*it)->idle(this, now) != 0) {
+            it = active.erase(it);
+            dprintf("http: remove client");
+          } else {
+            it++;
+          }
         }
         return;
     }
@@ -135,14 +143,82 @@ void WebServer::idle(unsigned long now)
 #endif
 }
 
-void file_handler(HTTP &http)
+void WebServer::add(const char *path, void (*handler)(HTTP &))
 {
-  const char *path = http.path.c_str();
-  if (!SD.exists(path)) {
+#if USE_WIFI
+  Handler h = { path, handler };
+  handlers.push_back(h);
+#endif
+}
+
+//
+// HTTP
+//
+
+void WebServer::file_put_handler(HTTP &http)
+{
+  if (http.method != "PUT") {
+    http.header(405, "Method Not Allowed");
+    http.close();
     return;
   }
+  unsigned int clen = http.hdrs.count("content-length") ? atoi(http.hdrs["content-length"].c_str()) : -1;
+  if (clen < 0) {
+    http.header(411, "Length Required");
+    http.close();
+    return;
+  }
+  const char *path = http.path.c_str();
+  File file = SD.open(path, FILE_WRITE);
+  if (!file) {
+    http.header(404, "File Not Write");
+    http.close();
+    return;
+  }
+
+  int buflen = 10*1024;
+  auto buf = std::shared_ptr<unsigned char[]>(new unsigned char[buflen]);
+  if (buf == NULL) {
+    http.header(404, "Out of Memory");
+    file.close();
+    return;
+  }
+
+  if (http.hdrs.count("expect") && http.hdrs["expect"] == "100-continue") {
+    http.client.println("HTTP/1.1 100 Continue");
+    http.client.println("");
+    http.client.flush();
+  }
+
+  for (unsigned int bytes = 0 ; bytes < clen ; ){
+    if (http.client.available()) {
+      int n = http.client.readBytes(buf.get(), buflen);
+      file.write(buf.get(), n);
+      bytes += n;
+    } else {
+      delay(1);
+    }
+  }
+
+  file.close();
+  http.header(201, "File Created");
+  http.printf("Content-Location: %s\n", path);
+  http.body();
+  http.close();
+}
+
+void WebServer::file_get_handler(HTTP &http)
+{
+  const char *path = http.path.c_str();
   File file = SD.open(path);
   if (!file) {
+    http.header(404, "File Not Found");
+    http.close();
+    return;
+  }
+  if (!SD.exists(path)) {
+    http.header(404, "File Not Found");
+    http.close();
     return;
   }
   int content_length = file.size();
@@ -163,14 +239,15 @@ void file_handler(HTTP &http)
   int buflen = 10*1024;
   auto buf = std::shared_ptr<unsigned char[]>(new unsigned char[buflen]);
   if (buf == NULL) {
-    http.begin(404, "Out of Memory");
+    http.header(404, "Out of Memory");
+    file.close();
     return;
   }
 
-  http.begin(200, "File Follows");
+  http.header(200, "File Follows");
   http.printf("Content-Length: %d\n", content_length);
   http.printf("Content-Type: %s\n", content_type);
-  http.end();
+  http.body();
 
   dprintf("%s: sending %d bytes of %s", http.path.c_str(), content_length, content_type);
 
@@ -179,79 +256,97 @@ void file_handler(HTTP &http)
     if (n <= 0) {
       break;
     }
+    //dprintf("writing %d bytes", n);
     http.write(buf.get(), n);
   }
   file.close();
+  http.close();
 }
 
-void WebServer::handle(WiFiClient &client)
+int HTTP::idle(WebServer *server, unsigned int now)
 {
-  String currentLine = "";
-  String method = "";
-  String path = "";
-  while (client.connected()) {
-    if (client.available()) {
-      char c = client.read();
-      //Serial.write(c);
-      if (c == '\n') {
-        if (currentLine.length() == 0) {
-          WebServer::dispatch(client, method, path);
-          return;
+  if (!client.connected()) {
+    dprintf("http: lost connection");
+    return 1;
+  }
+  // read header
+  while (state == HTTP_IDLE && client.available()) {
+    char c = client.read();
+    if (c == '\n') {
+      //dprintf("GOT LINE '%s'", line.c_str());
+      if (line.length() == 0) {
+        state = HTTP_DISPATCH;
+        break;
+      }
+      // header line
+      if (method == "") {
+        int i = line.indexOf(' ');
+        method = line.substring(0, i);
+        path = line.substring(i+1, line.indexOf(' ', i+1));
+        int j = path.indexOf('?');
+        if (j >= 0) {
+          String query = path.substring(j+1);
+          path = path.substring(0, j);
+          while (query.length() > 0) {
+            int amp = query.indexOf('&');
+            String keyvalue = query.substring(0, amp);
+            int eq = keyvalue.indexOf('=');
+            String key = keyvalue.substring(0, eq > 0 ? eq : keyvalue.length());
+            String val = keyvalue.substring(eq > 0 ? eq+1 : keyvalue.length());
+            query = query.substring(amp > 0 ? amp+1 : query.length());
+            param[key] = val;
+            //dprintf("PARAM %s = %s", key.c_str(), val.c_str());
+          }
         }
-        // header line
-        if (method == "") {
-          int i = currentLine.indexOf(' ');
-          method = currentLine.substring(0, i);
-          path = currentLine.substring(i+1, currentLine.indexOf(' ', i+1));
+      } else {
+        int c = line.indexOf(':');
+        if (c >= 0) {
+          String key = line.substring(0, c);
+          String val = line.substring(c+1);
+          key.toLowerCase();
+          key.trim();
+          val.trim();
+          hdrs[key] = val;
         }
-        currentLine = "";
-      } else if (c != '\r') {
-        currentLine += c;
+      }
+      line = "";
+    } else if (c != '\r') {
+      line += c;
+    }
+  }
+  if (state == HTTP_IDLE) {
+    return 0;
+  }
+  // dispatch request
+  if (state == HTTP_DISPATCH) {
+    for (struct Handler h: handlers) {
+      if (path.equals(h.path)) {
+        handler = h.handler;
+        state = HTTP_HEADER;
+        break;
       }
     }
-  }
-}
-
-void WebServer::dispatch(WiFiClient &client, String &method, String &path)
-{
-  HTTP http(client, method, path);
-
-  for (int i = 0 ; i < nhandlers ; i++) {
-    if (path.equals(handlers[i].path)) {
-      handlers[i].handler(http);
+    if (state == HTTP_DISPATCH) {
+      dprintf("METHOD '%s' PATH '%s'", method.c_str(), path.c_str()); 
+      handler = method == "PUT" ? WebServer::file_put_handler : WebServer::file_get_handler;
+      state = HTTP_HEADER;
     }
   }
-  if (http.state == 0) {
-    file_handler(http);
+  // handle request, generate response
+  if (state < HTTP_CLOSED) {
+    handler(*this);
   }
-  if (http.state == 0) {
-    http.begin(404, "File Not Found");
+  // check for slow response
+  if (state < HTTP_CLOSED && http_tm + 2000 < now) {
+    dprintf("http: response time out");
+    close();
   }
-  if (http.state == 1) {
-    http.end();
-  }
+  // check when done
+  return state == HTTP_CLOSED;
 }
 
-void WebServer::add(const char *path, void (*handler)(HTTP &))
+void HTTP::header(int code, const char *msg)
 {
-#if USE_WIFI
-  if (nhandlers < MAX_HANDLERS) {
-    handlers[nhandlers].path = path;
-    handlers[nhandlers].handler = handler;
-    nhandlers++;
-  } else {
-    dprintf("ERROR: too many HTTP handlers (max=%d)", MAX_HANDLERS);
-  }
-#endif
-}
-//
-// HTTP
-//
-
-
-void HTTP::begin(int code, const char *msg)
-{
-  state = 1;
   printf("HTTP/1.1 %d %s\n", code, msg);
 }
 
@@ -264,36 +359,41 @@ void HTTP::printf(const char *fmt, ...)
   client.print(buf);
 }
 
-void HTTP::end()
+void HTTP::body()
 {
-  if (state == 1) {
-    client.println("Connection: close");
-    client.println();
-  }
-  state = method == "HEAD" ? 4 : 2;
+  client.println("Connection: close");
+  client.println("");
+  state = method == "HEAD" ? HTTP_CLOSED : HTTP_BODY;
 }
 
 int HTTP::write(unsigned char *buf, int len)
 {
   switch (state) {
-    case 0:
-      begin(200, "File Follows");
-    case 1:
-      end();
-    case 2:
-      state = 3;
-    case 3:
-      break;
-    case 4:
+    case HTTP_HEADER:
+      header(200, "File Follows");
+      body();
+      // fall through
+    case HTTP_BODY:
+      for (int off = 0 ; off < len ; ) {
+        int n = client.write(buf + off, min(10*1024, len - off));
+        if (n < 0) {
+          dprintf("write failed, http closed");
+          state = HTTP_CLOSED;
+          return off;
+        }
+        off += n;
+      }
+      // fall through
+    default:
       return len;
   }
-  for (int off = 0 ; off < len ; ) {
-    int n = client.write(buf + off, min(10*1024, len - off));
-    if (n < 0) {
-      state = 4;
-      return off;
-    }
-    off += n;
+}
+
+void HTTP::close()
+{
+  if (state == HTTP_HEADER) {
+    body();
   }
-  return len;
+  state = HTTP_CLOSED;
+  client.stop();
 }

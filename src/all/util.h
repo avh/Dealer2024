@@ -4,6 +4,8 @@
 #include <Arduino.h>
 #include <stdarg.h>
 #include <cstdio>
+#include <vector>
+#include <map>
 #include "defs.h"
 
 #if USE_SERIAL

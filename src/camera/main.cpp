@@ -4,10 +4,12 @@
 #include "webserver.h"
 #include "light.h"
 #include "sdcard.h"
+#include "camera.h"
 
-LEDArray<LIGHT_PIN> light("camera-light", 8, 16);
 WebServer www;
 SDCard sdcard;
+LEDArray light("camera-light", 8, 200);
+Camera cam;
 
 class Idler : public IdleComponent {
   public:
@@ -17,12 +19,7 @@ class Idler : public IdleComponent {
     }
 
     virtual void idle(unsigned long now) {
-      if (light.value) {
-        light.off();
-      } else {
-        light.on(100);
-      }
-      dprintf("%5d: %s, wifi=%d, light=%d", i++, name, www.connected, light.value);
+      dprintf("%5d: %s, wifi=%d, light=%d, frame=%d", i++, name, www.connected, light.value, cam.frame_nr);
     }
 } idler;
 

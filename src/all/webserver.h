@@ -6,18 +6,34 @@
 
 #define MAX_HANDLERS 64
 
+enum HTTPState {
+    HTTP_IDLE,
+    HTTP_DISPATCH,
+    HTTP_HEADER,
+    HTTP_BODY,
+    HTTP_CLOSED,
+    HTTP_TIMEOUT,
+};
+
 class HTTP {
   public:
-    WiFiClient &client;
-    String &method;
-    String &path;
-    int state = 0;
+    WiFiClient client;
+    unsigned int http_tm;
+    String line;
+    String method;
+    String path;
+    std::map<String,String> hdrs;
+    std::map<String,String> param;
+    HTTPState state = HTTP_IDLE;
+    void (*handler)(HTTP &) = NULL;
   public:
-    HTTP(WiFiClient &client, String &method, String &path) : client(client), method(method), path(path) {}
-    void begin(int code, const char *str);
+    HTTP(WiFiClient &client) : client(client), http_tm(millis()) {}
+    int idle(class WebServer *server, unsigned int now);
+    void header(int code, const char *str);
     void printf(const char *fmt, ...);
-    void end();
+    void body();
     int write(unsigned char *buf, int len);
+    void close();
 };
 
 class WebServer : public IdleComponent {
@@ -25,13 +41,16 @@ class WebServer : public IdleComponent {
     WiFiServer server;
     bool connected = false;
     int state = 0;
+    int nactive = 0;
+    std::vector<std::unique_ptr<HTTP>> active;
+
   public:
     WebServer() : IdleComponent("HTTP", 100), server(80) {}
     static void add(const char *path, void (*handler)(HTTP &));
- 
+    static void file_get_handler(HTTP &http);
+    static void file_put_handler(HTTP &http);
+
   public:
     virtual void init();
     virtual void idle(unsigned long now);
-    static void dispatch(WiFiClient &client, String &method, String &path);
-    void handle(WiFiClient &client);
 };
