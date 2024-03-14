@@ -7,7 +7,4 @@ class SDCard : public InitComponent {
   public:
     SDCard() : InitComponent("SD") {}
     virtual void init();
-
-    static void handle_listdir(HTTP &http, const char *path, int depth = 0);
-
 };

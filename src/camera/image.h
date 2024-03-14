@@ -5,6 +5,22 @@
 #include <SD.h>
 #include "util.h"
 
+//#define CARDSUIT_COL      8
+//#define CARDSUIT_ROW      9
+#define CARDSUIT_NCOLS    13
+#define CARDSUIT_NROWS    4
+
+#define CARDSUIT_WIDTH        34
+#define CARDSUIT_HEIGHT       100
+#define CARD_WIDTH            CARDSUIT_WIDTH
+#define CARD_HEIGHT           60
+#define SUIT_WIDTH            CARDSUIT_WIDTH
+#define SUIT_HEIGHT           42
+#define SUIT_OFFSET           (CARDSUIT_HEIGHT - SUIT_HEIGHT)
+
+#define CARD_MATCH_NONE       -1
+#define CARD_MATCH_EMPTY      (4*13)
+
 typedef unsigned char pixel;
 
 class Image {
@@ -36,13 +52,13 @@ class Image {
     //
     // card/suit specific operations
     //
-    //bool locate(Image &tmp, Image &card, Image &suit);
-    //int match(const Image &img);
+    bool locate(Image &tmp, Image &card, Image &suit);
+    int match(const Image &img);
 
     int save(const char *fname);
     void free();
     ~Image();
 
   private:
-  //int vlocate(int ymin, int ymax);
+    int vlocate(int ymin, int ymax);
 };

@@ -3,22 +3,27 @@
 #pragma once
 #include "util.h"
 
-class Bus : public IdleComponent {
+class BusSlave : public IdleComponent {
   public:
-    Bus(const char *name) : IdleComponent(name) {
+    uint8_t addr;
+    void (*handler)(BusSlave &bus);
+    unsigned char req[32];
+    int reqlen;
+    unsigned char res[32];
+    int reslen;
+    bool result_requested;
+  public:
+    BusSlave(uint8_t addr, void (*handler)(BusSlave &bus)) : IdleComponent("BusClient"), addr(addr), handler(handler), reqlen(0), reslen(0), result_requested(false) {
     } 
+    virtual void init();
+    virtual void idle(unsigned long now);
 };
 
-class BusMaster : Bus {
+class BusMaster : public InitComponent {
   public:
-    void request(int addr, int cmd, void (*handle)(in));
+    BusMaster() : InitComponent("BusMaster") {}
+    virtual void init();
 
-};
-
-class BusSlave : Bus {
-  public:
-    int addr;
-  public:
-    BusSlave(const char *name, int addr) : Bus(name), addr(addr) {
-    }
+    bool check(uint8_t addr);
+    bool request(uint8_t addr, const unsigned char *req, int reqlen, unsigned char *res=NULL, int reslen=0);
 };

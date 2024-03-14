@@ -13,9 +13,10 @@ bool Ejector::load()
     motor2.stop();
     motor1.set_speed(speed);
     motor2.set_speed(speed);
-    //fan.set_speed(100);
+    fan.set_speed(100);
     card_tm = card.last_tm;
     eject_tm = millis();
+    fan_tm = millis();
     return true;
 }
 
@@ -30,10 +31,11 @@ bool Ejector::eject()
     motor2.stop();
     motor1.set_speed(0);
     motor2.set_speed(speed);
-    //fan.set_speed(100);
+    fan.set_speed(100);
 
     card_tm = card.last_tm;
     eject_tm = millis();
+    fan_tm = millis();
     return true;
 }
 
@@ -82,6 +84,10 @@ void Ejector::idle(unsigned long now)
         }
         break;
       default:
+        if (fan_tm && now > fan_tm + 1000) {
+            fan.stop();
+            fan_tm = 0;
+        }
         break;
     }
 }

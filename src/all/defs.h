@@ -7,6 +7,7 @@
 #define USE_WIFI            1
 
 #define CAMERA_ADDR         0x1A
+#define CMD_CAPTURE         0xFE
 
 //
 // Dealer Pins
@@ -18,10 +19,10 @@
 #define M1_PIN2     6
 #define M2_PIN1     7
 #define M2_PIN2     8
-#define FN_PIN1     9
-#define FN_PIN2     10
-#define MR_PIN1     11
-#define MR_PIN2     12
+#define MR_PIN1     9
+#define MR_PIN2     10
+#define FN_PIN1     11
+#define FN_PIN2     12
 #define BUZZER_PIN  13
 
 #define LED_WIFI      A7

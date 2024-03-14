@@ -64,18 +64,27 @@ void WebServer::init()
 void WebServer::idle(unsigned long now) 
 {
 #if USE_WIFI
+    static bool listed_handlers = false;
+    if (!listed_handlers) {
+      listed_handlers = true;
+      dprintf("www: %d handlers", handlers.size());
+      for (struct Handler h: handlers) {
+        dprintf("www: handler %s", h.path);
+      }
+    }
+
     int status = WiFi.status();
     if (connected && status == WL_CONNECTED) {
         // connected, check for traffic
         WiFiClient client = server.available();
         if (client) {
-          dprintf("wifi: new client");
+          //dprintf("wifi: new client");
           active.push_back(std::unique_ptr<HTTP>(new HTTP(client)));
         }
         for (auto it = active.begin() ; it != active.end() ; ) {
           if ((*it)->idle(this, now) != 0) {
             it = active.erase(it);
-            dprintf("http: remove client");
+            //dprintf("http: remove client");
           } else {
             it++;
           }
@@ -327,7 +336,7 @@ int HTTP::idle(WebServer *server, unsigned int now)
       }
     }
     if (state == HTTP_DISPATCH) {
-      dprintf("METHOD '%s' PATH '%s'", method.c_str(), path.c_str()); 
+      //dprintf("METHOD '%s' PATH '%s'", method.c_str(), path.c_str()); 
       handler = method == "PUT" ? WebServer::file_put_handler : WebServer::file_get_handler;
       state = HTTP_HEADER;
     }

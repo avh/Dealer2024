@@ -1,6 +1,7 @@
 // (c)2024, Arthur van Hoff, Artfahrt Inc.
 
 #include "util.h"
+#include "bus.h"
 #include "motor.h"
 #include "angle.h"
 #include "sensor.h"
@@ -8,14 +9,15 @@
 #include "webserver.h"
 
 // Components
+BusMaster bus;
 Motor motor1("Motor1", M1_PIN1, M1_PIN2, 400, 10000);
 Motor motor2("Motor2", M2_PIN1, M2_PIN2, 400, 10000);
-//Motor fan("Fan", FN_PIN1, FN_PIN2, 100, 100000, 2000);
+Motor fan("Fan", FN_PIN1, FN_PIN2, 100, 100000, 2000);
 Motor rotator("Rotator", MR_PIN1, MR_PIN2, 400, 400);
 AngleSensor angle("Angle");
 IRSensor card("Card", CARD_PIN, HIGH);
 Ejector ejector("Ejector");
-WiFiNetwork wifi;
+WebServer www;
 
 // REMIND: Power Button
 class Button : public IdleComponent {
@@ -67,8 +69,9 @@ class Button : public IdleComponent {
     virtual void pressed() {
       if (card.state) {
         ejector.eject();
+        unsigned char buf[] = {CMD_CAPTURE};
+        bus.request(CAMERA_ADDR, buf, sizeof(buf));
       } else {
-      //} else if (deck.value()) {
         ejector.load();
       }
     }
@@ -90,47 +93,9 @@ class Debugger : IdleComponent {
     }
 };
 
-class Echo : IdleComponent {
-  public:
-    Echo() : IdleComponent("Echo", 5*1000) {
-    }
-    virtual void init() {
-    } 
-    virtual void idle(unsigned long now) {
-      int n = 10;
-      Wire.beginTransmission(CAMERA_ADDR);
-      for (int i = 0 ; i < n ; i++) {
-        Wire.write(i*3);
-      }
-      int result = Wire.endTransmission();
-      if (result != 0) {
-        dprintf("command error %d", result);
-        return;
-      }
-
-      Wire.requestFrom(CAMERA_ADDR, n);
-      for (int i = 0 ; i < n ; i++) {
-        for (;;) {
-          int available = Wire.available();
-          if (available > 0) {
-            break;
-          }
-          if (available < 0) {
-            dprintf("read error %d", available);
-            return;
-          }
-        }  
-        int b = Wire.read();
-        if (b != i*3) {
-          dprintf("echo read error, expected=%d, got=%d", i*3, b);
-          return;
-        }
-      }
-    }
-};
 
 Debugger debugger;
-Echo echo;
+//Echo echo;
 
 //
 // Main Program
@@ -138,9 +103,6 @@ Echo echo;
 
 void setup() 
 {
-  Wire.begin();
-  Wire.setTimeOut(1000);
-
   init_all("Dealer");
 }
 

@@ -46,12 +46,17 @@ IdleComponent *IdleComponent::first = NULL;
 
 void IdleComponent::idle_all() 
 {
+    bool handled = false;
     unsigned long now = millis();
     for (IdleComponent *p = first ; p != NULL ; p = p->next) {
       if (p->last_idle_tm + p->interval <= now) {
           p->idle(now);
           p->last_idle_tm = now;
+          handled = true;
       }
+    }
+    if (!handled) {
+      delayMicroseconds(10);
     }
 }
 

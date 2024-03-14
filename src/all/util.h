@@ -8,6 +8,14 @@
 #include <map>
 #include "defs.h"
 
+#ifndef max
+#define max(a,b)            (((a) > (b)) ? (a) : (b))
+#endif
+
+#ifndef min
+#define min(a,b)            (((a) < (b)) ? (a) : (b))
+#endif
+
 #if USE_SERIAL
 extern bool verbose;
 extern void dprintf(const char *fmt, ...);

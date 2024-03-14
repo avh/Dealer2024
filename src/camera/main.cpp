@@ -1,10 +1,10 @@
-#include <Arduino.h>
-#include <Wire.h>
+// (c)2024, Arthur van Hoff, Artfahrt Inc.
 #include "util.h"
-#include "webserver.h"
+#include "bus.h"
 #include "light.h"
 #include "sdcard.h"
 #include "camera.h"
+#include "webserver.h"
 
 WebServer www;
 SDCard sdcard;
@@ -23,32 +23,19 @@ class Idler : public IdleComponent {
     }
 } idler;
 
-int nbytes = 0;
-byte data[32];
-
-void handleReceiveCommand(int len) {
-  nbytes = 0;
-  for (int i = 0 ; i < len ; i++) {
-    byte b = Wire.read();
-    data[nbytes++] = b;
-    //dprintf("%4d:  %02x", i, b);
+BusSlave bus(CAMERA_ADDR, [] (BusSlave &bus) {
+  switch (bus.req[0]) {
+    case CMD_CAPTURE:
+      bus.res[0] = 0x13;
+      bus.reslen = 1;
+      return;
+    default:
+      return;
   }
-  dprintf("received command %d bytes", len);
-}
-
-void handleRequestData() {
-  Wire.write(data, nbytes);
-  dprintf("request data, sending %d bytes", nbytes);
-  nbytes = 0;
-}
+});
 
 void setup() 
 {
-    Wire.begin(CAMERA_ADDR);
-    Wire.setBufferSize(2*1024);
-    Wire.onReceive(handleReceiveCommand);
-    Wire.onRequest(handleRequestData);
-
     init_all("camera");
 }
 

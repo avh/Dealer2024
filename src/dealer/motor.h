@@ -37,7 +37,9 @@ class PWM : public InitComponent {
         //dprintf("write pin=%d, chan=%d, value=%d", pin, chan, value);
         //ledcWrite(pin, value);
       //}
+      dprintf("write pin=%d, value=%d", pin, value);
       this->value = value;
+      analogWrite(pin, value);
     }
 };
 
@@ -82,7 +84,7 @@ class Motor : IdleComponent {
 
 extern Motor motor1;
 extern Motor motor2;
-//extern Motor fan;
+extern Motor fan;
 extern Motor rotator;
 
 extern int eject();

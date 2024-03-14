@@ -20,6 +20,7 @@ public:
     int speed = 800;
     unsigned long eject_tm;
     unsigned long card_tm;
+    unsigned long fan_tm;
     
 public:
     Ejector(const char *name) : IdleComponent(name) {}

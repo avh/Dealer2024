@@ -1,6 +1,9 @@
 // (c)2024, Arthur van Hoff, Artfahrt Inc.
 #include <Wire.h>
+#include "bus.h"
 #include "angle.h"
+
+extern BusMaster bus;
 
 void AngleSensor::init()
 {
@@ -18,27 +21,19 @@ void AngleSensor::init()
 //
 float AngleSensor::readAngle()
 { 
+  unsigned char res[1];
+
   //7:0 - bits
-  Wire.beginTransmission(0x36); //connect to the sensor
-  Wire.write(0x0D); //figure 21 - register map: Raw angle (7:0)
-  int error = Wire.endTransmission(); //end transmission
-  if (error != 0) {
-    dprintf("error: angle sensor not found, error=%d", error);
+  if (!bus.request(0x36, (const unsigned char[]){0x0D}, 1, res, sizeof(res))) {
     return 360;
   }
-  Wire.requestFrom(0x36, 1); //request from the sensor
-  
-  while(Wire.available() == 0); //wait until it becomes available 
-  int lowbyte = Wire.read(); //Reading the data after the request
+  int lowbyte = res[0];
  
   //11:8 - 4 bits
-  Wire.beginTransmission(0x36);
-  Wire.write(0x0C); //figure 21 - register map: Raw angle (11:8)
-  Wire.endTransmission();
-  Wire.requestFrom(0x36, 1);
-  
-  while(Wire.available() == 0);  
-  int highbyte = Wire.read();
+  if (!bus.request(0x36, (const unsigned char[]){0x0C}, 1, res, sizeof(res))) {
+    return 360;
+  }
+  int highbyte = res[0];
   
   //4 bits have to be shifted to its proper place as we want to build a 12-bit number
   highbyte = highbyte << 8; //shifting to left

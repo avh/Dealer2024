@@ -33,6 +33,10 @@
 #define convert565(v) (r565(v) + b565(v) + (g565(v)<<1))
 
 Image latest;
+Image tmp;
+Image card;
+Image suit;
+
 float *vignet = NULL;
 float vignet_f = 0;
 float vignet_s = 0.95;
@@ -99,8 +103,8 @@ void Camera::init()
     config.pin_pwdn = PWDN_GPIO_NUM;
     config.pin_reset = RESET_GPIO_NUM;
     config.xclk_freq_hz = 20000000;
-    //config.frame_size = FRAMESIZE_VGA;
-    config.frame_size = FRAMESIZE_240X240;
+    config.frame_size = FRAMESIZE_VGA;
+    //config.frame_size = FRAMESIZE_240X240;
     //config.pixel_format = PIXFORMAT_JPEG;
     config.pixel_format = PIXFORMAT_RGB565;
     //config.pixel_format = PIXFORMAT_GRAYSCALE;
@@ -169,9 +173,21 @@ void Camera::init()
             http.close();
             return;
         }
-        unpack_565((unsigned short *)fb->buf, fb->width, fb->width, fb->height, latest);
+
+        // pick useful region
+        int x = 140;
+        int y = 135;
+        int w = 350;
+        int h = 150;
+        unpack_565((unsigned short *)fb->buf + x + y * fb->width, fb->width, w, h, latest);
+        latest.locate(tmp, card, suit);
+        unsigned int tm = millis();
         latest.save("/latest.jpg");
-        latest.debug("LATEST IMAGE");
+        card.save("/card.jpg");
+        suit.save("/suit.jpg");
+        dprintf("saved in %lu ms", millis() - tm);
+
+        //latest.debug("LATEST IMAGE");
         http.path = "/latest.jpg";
         WebServer::file_get_handler(http);
         esp_camera_fb_return(fb);
