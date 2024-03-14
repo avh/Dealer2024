@@ -6,9 +6,6 @@
 #define SERIAL_SPEED        115200
 #define USE_WIFI            1
 
-#define CAMERA_ADDR         0x1A
-#define CMD_CAPTURE         0xFE
-
 //
 // Dealer Pins
 //
@@ -36,3 +33,22 @@
 //
 #define LIGHT_PIN     GPIO_NUM_44
 #define LED_CAPTURE   D6
+
+//
+// Capture Commands
+//
+
+#define CAMERA_ADDR         0x1A
+#define CMD_CAPTURE         0xFE
+#define CMD_LEARN           0xFD
+#define CMD_COMMIT          0xFC
+#define CMD_IDENTIFY        0xFB
+#define CMD_CLEAR           0xFA
+
+#define CARD_EMPTY          52      // no card detected in hopper
+#define CARD_NULL          53      // no card detected yet
+#define CARD_FAIL           54      // card detection failed    
+
+#define CARDSUIT(c,s)       ((c)*13 + (s))
+#define CARD(cs)            ((cs) % 13) 
+#define SUIT(cs)            ((cs) / 13)

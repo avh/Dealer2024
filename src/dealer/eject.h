@@ -21,9 +21,14 @@ public:
     unsigned long eject_tm;
     unsigned long card_tm;
     unsigned long fan_tm;
+    int current_card = CARD_NULL;
+    int loaded_card = CARD_NULL;
     
 public:
     Ejector(const char *name) : IdleComponent(name) {}
+
+    bool captureCard();
+    bool identifyCard();
 
     bool load();
     bool eject();

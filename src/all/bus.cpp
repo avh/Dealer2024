@@ -18,7 +18,14 @@ static void handleReceiveCommand(int len)
 
 static void handleRequestData() 
 {
-    client->result_requested = true;
+    if (client->reslen > 0) {
+        Wire.write(client->res, client->reslen);
+        client->reslen = 0;
+        client->interval = 1000;
+    } else {
+        client->result_requested = true;
+        client->interval = 0;
+    }
 }
 
 void BusSlave::init()
@@ -32,7 +39,7 @@ void BusSlave::init()
 
 void BusSlave::idle(unsigned long now)
 {
-    if (reqlen >= 0) {
+    if (reqlen > 0) {
         dprintf("bus: got req=0x%02x, len=%d", req[0], reqlen);
         handler(*this);
         reqlen = 0;
@@ -78,7 +85,10 @@ bool BusMaster::request(uint8_t addr, const unsigned char *req, int reqlen, unsi
     if (res != NULL && reslen > 0) {
         int n = Wire.requestFrom(int(addr), reslen);
         if (n != reslen) {
-            dprintf("bus: 0x%02x, requested %d, got %d", addr, reslen, n);
+            if (last_error_addr != addr) {
+                dprintf("bus: 0x%02x, requested %d, got %d", addr, reslen, n);
+                last_error_addr = addr;
+            }
             for (int i = 0 ; i < n ; i++) {
                 Wire.read();
             }

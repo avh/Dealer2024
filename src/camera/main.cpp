@@ -25,9 +25,21 @@ class Idler : public IdleComponent {
 
 BusSlave bus(CAMERA_ADDR, [] (BusSlave &bus) {
   switch (bus.req[0]) {
-    case CMD_CAPTURE:
-      bus.res[0] = 0x13;
+    case CMD_IDENTIFY:
+      bus.res[0] = cam.last_card;
       bus.reslen = 1;
+      return;
+    case CMD_CLEAR:
+      cam.clearCard();
+      return;
+    case CMD_CAPTURE:
+      cam.captureCard(CARD_NULL);
+      return;
+    case CMD_LEARN:
+      cam.captureCard(bus.req[1]);
+      return;
+    case CMD_COMMIT:
+      cam.commit();
       return;
     default:
       return;

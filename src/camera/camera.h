@@ -9,6 +9,7 @@ class Camera : IdleComponent {
   public:
     int frame_nr = 0;
     unsigned int next_capture_tm = 0;
+    int last_card = CARD_NULL;
 
   public:
     Camera() : IdleComponent("capture", 1000) {}
@@ -16,6 +17,9 @@ class Camera : IdleComponent {
     virtual void idle(unsigned long now);
 
     camera_fb_t *capture();
+    bool captureCard(int learn_card = CARD_NULL);
+    void clearCard();
+    void commit();
 };
 
 extern LEDArray light;

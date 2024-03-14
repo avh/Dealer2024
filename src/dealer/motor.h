@@ -33,11 +33,7 @@ class PWM : public InitComponent {
     void write(int value) 
     {
       value = max(0, min(value, PWM_MAX));
-      //if (chan >= 0) {
-        //dprintf("write pin=%d, chan=%d, value=%d", pin, chan, value);
-        //ledcWrite(pin, value);
-      //}
-      dprintf("write pin=%d, value=%d", pin, value);
+      //dprintf("write pin=%d, value=%d", pin, value);
       this->value = value;
       analogWrite(pin, value);
     }

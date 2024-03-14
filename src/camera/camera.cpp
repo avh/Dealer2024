@@ -161,36 +161,26 @@ void Camera::init()
             return http->write((unsigned char *)data, len);
         }, &http); 
 
-        //http.write(jpg_buf, jpg_len);
         esp_camera_fb_return(fb);
         http.close();
     });
 
     WebServer::add("/capture.jpg", [](HTTP &http) {
-        camera_fb_t *fb = cam.capture();
-        if (fb == NULL) {
+        if (!cam.captureCard()) {
             http.header(404, "Capture Failed");
             http.close();
             return;
         }
 
-        // pick useful region
-        int x = 140;
-        int y = 135;
-        int w = 350;
-        int h = 150;
-        unpack_565((unsigned short *)fb->buf + x + y * fb->width, fb->width, w, h, latest);
-        latest.locate(tmp, card, suit);
         unsigned int tm = millis();
         latest.save("/latest.jpg");
         card.save("/card.jpg");
         suit.save("/suit.jpg");
         dprintf("saved in %lu ms", millis() - tm);
-
+        
         //latest.debug("LATEST IMAGE");
         http.path = "/latest.jpg";
         WebServer::file_get_handler(http);
-        esp_camera_fb_return(fb);
     });
 
     WebServer::add("/controls", [](HTTP &http) {
@@ -280,4 +270,44 @@ camera_fb_t *Camera::capture()
     next_capture_tm = millis() + 34;
     frame_nr += 1;
     return fb;
+}
+
+bool Camera::captureCard(int learn_card)
+{
+    last_card = CARD_NULL;
+    camera_fb_t *fb = cam.capture();
+    if (fb == NULL) {
+        return false;
+    }
+
+    // pick useful region
+    int x = 140;
+    int y = 135;
+    int w = 350;
+    int h = 150;
+    unpack_565((unsigned short *)fb->buf + x + y * fb->width, fb->width, w, h, latest);
+    esp_camera_fb_return(fb);
+
+    // located card and suit
+    latest.locate(tmp, card, suit);
+
+    // REMIND: identify card OR learn
+    if (learn_card == CARD_NULL) { 
+        // REMIND: identify
+        last_card = CARD_FAIL;
+    } else {
+        // REMIND: learn
+        last_card = learn_card;
+    }
+    return true;
+}
+
+void Camera::clearCard()
+{
+    last_card = CARD_NULL;
+}
+
+void Camera::commit()
+{
+    // REMIND: later
 }

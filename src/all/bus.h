@@ -10,7 +10,7 @@ class BusSlave : public IdleComponent {
     unsigned char req[32];
     int reqlen;
     unsigned char res[32];
-    int reslen;
+    volatile int reslen;
     bool result_requested;
   public:
     BusSlave(uint8_t addr, void (*handler)(BusSlave &bus)) : IdleComponent("BusClient"), addr(addr), handler(handler), reqlen(0), reslen(0), result_requested(false) {
