@@ -10,8 +10,8 @@ class LEDArray : public IdleComponent {
     int nleds;
     int brightness;
     CRGB *leds;
-    unsigned int on_tm = 0;
-    unsigned int off_tm = 0;
+    unsigned long on_tm = 0;
+    unsigned long off_tm = 0;
     bool value = false;
 
   public:

@@ -18,7 +18,7 @@ enum HTTPState {
 class HTTP {
   public:
     WiFiClient client;
-    unsigned int http_tm;
+    unsigned long http_tm;
     String line;
     String method;
     String path;
@@ -28,7 +28,7 @@ class HTTP {
     void (*handler)(HTTP &) = NULL;
   public:
     HTTP(WiFiClient &client) : client(client), http_tm(millis()) {}
-    int idle(class WebServer *server, unsigned int now);
+    int idle(class WebServer *server, unsigned long now);
     void header(int code, const char *str);
     void printf(const char *fmt, ...);
     void body();

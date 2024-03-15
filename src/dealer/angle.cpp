@@ -21,6 +21,9 @@ void AngleSensor::init()
 //
 float AngleSensor::readAngle()
 { 
+  if (true) {
+    return -1;
+  }
   unsigned char res[1];
 
   //7:0 - bits

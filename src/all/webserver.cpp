@@ -67,9 +67,9 @@ void WebServer::idle(unsigned long now)
     static bool listed_handlers = false;
     if (!listed_handlers) {
       listed_handlers = true;
-      dprintf("www: %d handlers", handlers.size());
+      dprintf("wifi: %d handlers", handlers.size());
       for (struct Handler h: handlers) {
-        dprintf("www: handler %s", h.path);
+        dprintf("wifi: handler %s", h.path);
       }
     }
 
@@ -171,7 +171,7 @@ void WebServer::file_put_handler(HTTP &http)
     http.close();
     return;
   }
-  unsigned int clen = http.hdrs.count("content-length") ? atoi(http.hdrs["content-length"].c_str()) : -1;
+  unsigned long clen = http.hdrs.count("content-length") ? atoi(http.hdrs["content-length"].c_str()) : -1;
   if (clen < 0) {
     http.header(411, "Length Required");
     http.close();
@@ -199,7 +199,7 @@ void WebServer::file_put_handler(HTTP &http)
     http.client.flush();
   }
 
-  for (unsigned int bytes = 0 ; bytes < clen ; ){
+  for (unsigned long bytes = 0 ; bytes < clen ; ){
     if (http.client.available()) {
       int n = http.client.readBytes(buf.get(), buflen);
       file.write(buf.get(), n);
@@ -272,7 +272,7 @@ void WebServer::file_get_handler(HTTP &http)
   http.close();
 }
 
-int HTTP::idle(WebServer *server, unsigned int now)
+int HTTP::idle(WebServer *server, unsigned long now)
 {
   if (!client.connected()) {
     dprintf("http: lost connection");

@@ -15,7 +15,7 @@ class Idler : public IdleComponent {
   public:
     int i;
   public:
-    Idler() : IdleComponent("camera-idler", 1000) {
+    Idler() : IdleComponent("camera-idler", 10*1000) {
     }
 
     virtual void idle(unsigned long now) {
@@ -24,11 +24,19 @@ class Idler : public IdleComponent {
 } idler;
 
 BusSlave bus(CAMERA_ADDR, [] (BusSlave &bus) {
+  // interrupt handler, NO blocking
   switch (bus.req[0]) {
     case CMD_IDENTIFY:
+      bus.reqlen = 0;
       bus.res[0] = cam.last_card;
       bus.reslen = 1;
       return;
+    default:
+      return;
+  }
+},[] (BusSlave &bus) {
+  // command handler, blocking is allowed, but no responses
+  switch (bus.req[0]) {
     case CMD_CLEAR:
       cam.clearCard();
       return;

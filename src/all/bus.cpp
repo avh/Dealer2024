@@ -10,21 +10,24 @@ static BusSlave *client = NULL;
 
 static void handleReceiveCommand(int len) 
 {
-    client->interval = 0;
     client->reqlen = len;
     Wire.readBytes(client->req, client->reqlen);
-    dprintf("bus: recv cmd=0x%02x, len=%d", client->req[0], client->reqlen);
+    client->int_handler(*client);
+    if (client->reqlen > 0) {
+        client->interval = 0;
+    }
 }
 
 static void handleRequestData() 
 {
     if (client->reslen > 0) {
-        Wire.write(client->res, client->reslen);
+        int n = Wire.write(client->res, client->reslen);
+        if (n != client->reslen) {
+            dprintf("bus: hdlreqd FAILED 0x%02x len=%d, wrote %d", client->res[0], client->reslen, n);
+        }
         client->reslen = 0;
-        client->interval = 1000;
     } else {
-        client->result_requested = true;
-        client->interval = 0;
+        dprintf("bus: error, missing request data");
     }
 }
 
@@ -32,23 +35,22 @@ void BusSlave::init()
 {
     client = this;
     Wire.begin(addr);
-    Wire.setBufferSize(32);
+    Wire.setTimeOut(1000);
+    Wire.setBufferSize(128);
     Wire.onReceive(handleReceiveCommand);
     Wire.onRequest(handleRequestData);
 }
 
 void BusSlave::idle(unsigned long now)
 {
-    if (reqlen > 0) {
-        dprintf("bus: got req=0x%02x, len=%d", req[0], reqlen);
-        handler(*this);
-        reqlen = 0;
-    }
-    if (result_requested) {
-        Wire.write(res, reslen);
-        reslen = 0;
-        result_requested = false;
+    if (cmd_handler != NULL && reqlen > 0) {
+        cmd_handler(*this);
+        if (reslen > 0) {
+            dprintf("bus: error response after command not allowed");
+            reslen = 0;
+        }
         interval = 1000;
+        reqlen = 0;
     }
 }
 
@@ -59,7 +61,8 @@ void BusSlave::idle(unsigned long now)
 void BusMaster::init()
 {
     Wire.begin();
-    Wire.setTimeOut(100);
+    Wire.setTimeOut(1000);
+    Wire.setBufferSize(128);
 }
 
 bool BusMaster::check(uint8_t addr)
@@ -77,17 +80,23 @@ bool BusMaster::request(uint8_t addr, const unsigned char *req, int reqlen, unsi
     int error = Wire.endTransmission();
     if (error != 0) {
         if (last_error_addr != addr) {
-            dprintf("Wire: 0x%02x, error=%d", addr, error);
+            dprintf("bus: 0x%02x, error in endTransmission, %d", addr, error);
             last_error_addr = addr;
             return false;
         }
+    } else {
+        //dprintf("bus: 0x%02x, sent 0x%02x %d, reslen=%d", addr, req[0], reqlen, reslen);
     }
     if (res != NULL && reslen > 0) {
+        //delay(5);
         int n = Wire.requestFrom(int(addr), reslen);
         if (n != reslen) {
             if (last_error_addr != addr) {
-                dprintf("bus: 0x%02x, requested %d, got %d", addr, reslen, n);
+                dprintf("bus: 0x%02x, error, requested %d, got %d", addr, reslen, n);
                 last_error_addr = addr;
+                for (int i = 0 ; i < reslen ; i++) {
+                    res[i] = 0;
+                }
             }
             for (int i = 0 ; i < n ; i++) {
                 Wire.read();
@@ -95,12 +104,8 @@ bool BusMaster::request(uint8_t addr, const unsigned char *req, int reqlen, unsi
             last_error_addr = addr;
             return false;
         }
-        while (!Wire.available()) {
-            delayMicroseconds(1);
-        }
-        for (int i = 0 ; i < reslen ; i++) {
-            res[i] = Wire.read();
-        }
+        Wire.readBytes(res, reslen);
+        Wire.flush();
     }
     return true;
 }

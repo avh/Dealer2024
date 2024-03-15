@@ -172,7 +172,7 @@ void Camera::init()
             return;
         }
 
-        unsigned int tm = millis();
+        unsigned long tm = millis();
         latest.save("/latest.jpg");
         card.save("/card.jpg");
         suit.save("/suit.jpg");
@@ -245,10 +245,10 @@ void Camera::idle(unsigned long now)
 
 camera_fb_t *Camera::capture()
 {
-    light.on(100, 1000);
+    light.on(100, 500);
 
     // wait for the light to come on
-    while (millis() < light.on_tm + 200) {
+    while (millis() < light.on_tm + 100) {
         delay(1);
     }
     // wait for the next frame to be ready
@@ -274,6 +274,7 @@ camera_fb_t *Camera::capture()
 
 bool Camera::captureCard(int learn_card)
 {
+    dprintf("capturing card");
     last_card = CARD_NULL;
     camera_fb_t *fb = cam.capture();
     if (fb == NULL) {
@@ -294,9 +295,11 @@ bool Camera::captureCard(int learn_card)
     // REMIND: identify card OR learn
     if (learn_card == CARD_NULL) { 
         // REMIND: identify
+        dprintf("setting last_card to CARD_FAIL");
         last_card = CARD_FAIL;
     } else {
         // REMIND: learn
+        dprintf("setting last_card to learn_card=%d", learn_card);
         last_card = learn_card;
     }
     return true;
@@ -304,6 +307,7 @@ bool Camera::captureCard(int learn_card)
 
 void Camera::clearCard()
 {
+    dprintf("clearing last_card");
     last_card = CARD_NULL;
 }
 

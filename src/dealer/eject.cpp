@@ -7,22 +7,27 @@ extern BusMaster bus;
 
 bool Ejector::captureCard()
 {
-    return bus.request(0x10, (const unsigned char []){CMD_CAPTURE}, 1);
+    return bus.request(CAMERA_ADDR, (const unsigned char []){CMD_CAPTURE}, 1);
 }
+
 bool Ejector::identifyCard()
 {
-    unsigned char buf[1];
-    for (unsigned int start_tm = millis() ; millis() < start_tm + 1000 ;) {
-        if (!bus.request(0x10, (const unsigned char []){CMD_IDENTIFY}, 1, buf, 1)) {
-            return CARD_FAIL;;
+    for (unsigned long start_tm = millis() ; millis() < start_tm + 1000 ;) {
+        unsigned char buf[1] = {0};
+        if (!bus.request(CAMERA_ADDR, (const unsigned char []){CMD_IDENTIFY}, 1, buf, 1)) {
+            dprintf("identifyCard: failed");
+            return CARD_FAIL;
         }
         current_card = buf[0];
         if (current_card != CARD_NULL) {
+            dprintf("identifyCard: card=%d", current_card);
             return true;
         }
         delay(1);
+        //dprintf("ident: got current_card=%d", current_card);
     }
     current_card = CARD_FAIL;
+    dprintf("identifyCard: timeout, CARD_FAIL");
     return false;
 }
 
@@ -96,7 +101,7 @@ void Ejector::idle(unsigned long now)
         }
         break;
       case EJECT_LOADING:
-        if (card.state && card.last_tm < millis() - 50) {
+        if (card.state && card.last_tm < millis() - 40) {
             motor1.reverse();
             motor2.stop();
             state = EJECT_RETRACTING;
@@ -115,7 +120,7 @@ void Ejector::idle(unsigned long now)
         }
         break;
       case EJECT_RETRACTING:
-        if (now > eject_tm + 200) {
+        if (now > eject_tm + 400) {
             motor1.stop();
             motor2.stop();
             state = EJECT_OK;

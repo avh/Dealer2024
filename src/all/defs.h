@@ -45,9 +45,9 @@
 #define CMD_IDENTIFY        0xFB
 #define CMD_CLEAR           0xFA
 
-#define CARD_EMPTY          52      // no card detected in hopper
-#define CARD_NULL          53      // no card detected yet
-#define CARD_FAIL           54      // card detection failed    
+#define CARD_NULL           255      // no card detected yet
+#define CARD_EMPTY          254      // no card detected in hopper
+#define CARD_FAIL           253      // card detection failed    
 
 #define CARDSUIT(c,s)       ((c)*13 + (s))
 #define CARD(cs)            ((cs) % 13) 

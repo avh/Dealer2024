@@ -6,14 +6,15 @@
 class BusSlave : public IdleComponent {
   public:
     uint8_t addr;
-    void (*handler)(BusSlave &bus);
+    void (*int_handler)(BusSlave &);
+    void (*cmd_handler)(BusSlave &);
     unsigned char req[32];
     int reqlen;
     unsigned char res[32];
     volatile int reslen;
-    bool result_requested;
   public:
-    BusSlave(uint8_t addr, void (*handler)(BusSlave &bus)) : IdleComponent("BusClient"), addr(addr), handler(handler), reqlen(0), reslen(0), result_requested(false) {
+    BusSlave(uint8_t addr, void (*int_handler)(BusSlave &), void (*cmd_handler)(BusSlave &)) : 
+      IdleComponent("BusClient", 1000), addr(addr), int_handler(int_handler), cmd_handler(cmd_handler), reqlen(0), reslen(0) {
     } 
     virtual void init();
     virtual void idle(unsigned long now);

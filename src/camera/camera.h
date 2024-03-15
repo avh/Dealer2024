@@ -8,7 +8,7 @@
 class Camera : IdleComponent {
   public:
     int frame_nr = 0;
-    unsigned int next_capture_tm = 0;
+    unsigned long next_capture_tm = 0;
     int last_card = CARD_NULL;
 
   public:

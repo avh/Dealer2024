@@ -163,7 +163,7 @@ bool Image::locate(Image &tmp, Image &card, Image &suit)
       pmin = min(pmin, src[c]);
       pmax = max(pmax, src[c]);
     }
-    dprintf("%4d: contrast pmin=%d, pmax=%d", r, pmin, pmax);
+    //dprintf("%4d: contrast pmin=%d, pmax=%d", r, pmin, pmax);
     //int pmax = 250 - (r * 17)/10;
     //int pmin = 150 - (r * 125)/100;
     int offset = (pmin < pmax-40) ? pmin : 0;
@@ -197,7 +197,7 @@ int Image::vlocate(int ymin, int ymax)
       pmin = min(pmin, *src);
       pmax = max(pmax, *src);
     }
-    dprintf("%3d: ymin=%d, ymax=%d", y, pmin, pmax);
+    //dprintf("%3d: ymin=%d, ymax=%d", y, pmin, pmax);
     if (pmax - pmin > 100) {
       return max(ymin, y-1);
     }

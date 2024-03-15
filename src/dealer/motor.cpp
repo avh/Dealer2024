@@ -42,7 +42,7 @@ void Motor::set_speed(float speed)
     float m = max_speed();
     goal_speed = max(-m, min(speed, m));
     last_speed_ms = millis();
-    dprintf("set_speed %s %f", name, goal_speed);
+    //dprintf("set_speed %s %f", name, goal_speed);
 }
  
 void Motor::idle(unsigned long now) 

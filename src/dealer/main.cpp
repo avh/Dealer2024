@@ -69,8 +69,6 @@ class Button : public IdleComponent {
     virtual void pressed() {
       if (card.state) {
         ejector.eject();
-        unsigned char buf[] = {CMD_CAPTURE};
-        bus.request(CAMERA_ADDR, buf, sizeof(buf));
       } else {
         ejector.load();
       }
@@ -81,21 +79,20 @@ class Button : public IdleComponent {
 
 Button button("Button", BUTTON_PIN, HIGH);
 
-class Debugger : IdleComponent {
+class Idler : IdleComponent {
   public:
     int cnt = 0;
   public:
-    Debugger() : IdleComponent("Debugger", 1000) {
+    Idler() : IdleComponent("Idler", 10*1000) {
     }
     virtual void idle(unsigned long now) {
-      dprintf("%5d: wifi=%d, but=%d, card=%d, ang=%d, m1=%d", cnt, 0, button.state, card.state, int(angle.value()), int(motor1.value()));
+      dprintf("%5d: dealer-idler, wifi=%d, but=%d, card=%d, ang=%d, m1=%d", cnt, 0, button.state, card.state, int(angle.value()), int(motor1.value()));
       cnt += 1;
     }
 };
 
 
-Debugger debugger;
-//Echo echo;
+Idler idler;
 
 //
 // Main Program
@@ -106,7 +103,6 @@ void setup()
   init_all("Dealer");
 }
 
-bool last_connected = false;
 void loop() 
 {
   idle_all();
