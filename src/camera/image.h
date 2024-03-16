@@ -5,8 +5,6 @@
 #include <SD.h>
 #include "util.h"
 
-//#define CARDSUIT_COL      8
-//#define CARDSUIT_ROW      9
 #define CARDSUIT_NCOLS    13
 #define CARDSUIT_NROWS    4
 
@@ -30,7 +28,7 @@ class Image {
     int height;
     int stride;
     bool owned;
-    public:
+  public:
     Image();
     Image(const Image &other);
     Image(int width, int height);
@@ -55,6 +53,7 @@ class Image {
     bool locate(Image &tmp, Image &card, Image &suit);
     int match(const Image &img);
 
+    void send(class HTTP& http);
     int save(const char *fname);
     void free();
     ~Image();

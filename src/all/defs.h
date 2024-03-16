@@ -40,10 +40,9 @@
 
 #define CAMERA_ADDR         0x1A
 #define CMD_CAPTURE         0xFE
-#define CMD_LEARN           0xFD
-#define CMD_COMMIT          0xFC
-#define CMD_IDENTIFY        0xFB
-#define CMD_CLEAR           0xFA
+#define CMD_COMMIT          0xFD
+#define CMD_IDENTIFY        0xFC
+#define CMD_CLEAR           0xFB
 
 #define CARD_NULL           255      // no card detected yet
 #define CARD_EMPTY          254      // no card detected in hopper
@@ -52,3 +51,6 @@
 #define CARDSUIT(c,s)       ((c)*13 + (s))
 #define CARD(cs)            ((cs) % 13) 
 #define SUIT(cs)            ((cs) / 13)
+
+#define NCARDS              13
+#define NSUITS              4

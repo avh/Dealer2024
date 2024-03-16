@@ -19,8 +19,8 @@ class LEDArray : public IdleComponent {
         IdleComponent(name, 5000), nleds(nleds), brightness(brightness), leds(new CRGB[nleds]) {
     }
     virtual void init() {
-      FastLED.addLeds<WS2812, LIGHT_PIN>(leds, nleds);
-      off();
+        FastLED.addLeds<WS2812, LIGHT_PIN>(leds, nleds);
+        off();
     }
 
     void setRGB(int r, int g, int b) {
@@ -31,20 +31,24 @@ class LEDArray : public IdleComponent {
     }
 
     virtual void idle(unsigned long now) {
-      if (off_tm > 0 && now >= off_tm) {
-        off();
-      }
+        if (off_tm > 0 && now >= off_tm) {
+            off();
+        }
     }
     void on(int v = 100, int ms = 0) {
+        unsigned long now = millis();
+        if (on_tm == 0) {
+            on_tm = now;
+        }
         int g = v * brightness / 100;
         setRGB(g, g, g);
-        on_tm = millis();
-        off_tm = ms > 0 ? on_tm + ms : 0;
+        off_tm = ms == 0 ? 0 : now + ms;
         value = true;
     }
     void off() {
         setRGB(0, 0, 0);
         on_tm = 0;
+        off_tm = 0;
         value = false;
     }
 };

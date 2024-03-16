@@ -21,6 +21,8 @@ public:
     unsigned long eject_tm;
     unsigned long card_tm;
     unsigned long fan_tm;
+    bool learning = false;
+    int learn_card = CARD_NULL;
     int current_card = CARD_NULL;
     int loaded_card = CARD_NULL;
     
@@ -30,7 +32,7 @@ public:
     bool captureCard();
     bool identifyCard();
 
-    bool load();
+    bool load(bool learn = false);
     bool eject();
     virtual void idle(unsigned long now);
 };

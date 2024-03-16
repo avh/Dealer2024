@@ -7,7 +7,18 @@ extern BusMaster bus;
 
 bool Ejector::captureCard()
 {
-    return bus.request(CAMERA_ADDR, (const unsigned char []){CMD_CAPTURE}, 1);
+    unsigned char card = CARD_NULL;
+    if (learning) {
+        if (learn_card < 52) {
+            card = learn_card++;
+        } else {
+            return true;
+        }
+    }
+    delay(100);
+    unsigned char buf[] = {CMD_CAPTURE, card};
+    int result = bus.request(CAMERA_ADDR, buf, sizeof(buf));
+    return result;
 }
 
 bool Ejector::identifyCard()
@@ -20,6 +31,9 @@ bool Ejector::identifyCard()
         }
         current_card = buf[0];
         if (current_card != CARD_NULL) {
+            if (learn_card < 52) {
+                current_card = learn_card;
+            }
             dprintf("identifyCard: card=%d", current_card);
             return true;
         }
@@ -31,30 +45,34 @@ bool Ejector::identifyCard()
     return false;
 }
 
-bool Ejector::load()
+bool Ejector::load(bool learn)
 {
-    dprintf("load");
+    dprintf(learn ? "load and learn" : "load");
+    this->learning = learn;
+    this->learn_card = learn ? 0 : CARD_NULL;
     if (card.state) {
-        return true;
-    }
-    if (current_card == CARD_NULL) {
-        captureCard();
-        identifyCard();
-    }
-    if (current_card == CARD_EMPTY) {
-        dprintf("hopper empty");
         return true;
     }
 
     state = EJECT_LOADING;
     motor1.stop();
     motor2.stop();
+    fan.set_speed(100);
+
+    captureCard();
+    identifyCard();
+
+    if (current_card == CARD_EMPTY) {
+        dprintf("hopper empty");
+        return true;
+    }
+
     motor1.set_speed(speed);
     motor2.set_speed(speed);
-    fan.set_speed(100);
     card_tm = card.last_tm;
     eject_tm = millis();
     fan_tm = millis();
+    dprintf("loading");
     return true;
 }
 
@@ -64,13 +82,14 @@ bool Ejector::eject()
     if (!card.state) {
         return false;
     }
-    if (current_card == CARD_NULL) {
-        identifyCard();
-    }
     state = EJECT_EJECTING;
     motor1.stop();
     motor2.stop();
-    motor1.set_speed(0);
+    fan.set_speed(100);
+    if (current_card == CARD_NULL) {
+        identifyCard();
+    }
+    motor1.set_speed(-speed/4);
     motor2.set_speed(speed);
     fan.set_speed(100);
 
@@ -101,7 +120,7 @@ void Ejector::idle(unsigned long now)
         }
         break;
       case EJECT_LOADING:
-        if (card.state && card.last_tm < millis() - 40) {
+        if (card.state && now > card.last_tm + 60) {
             motor1.reverse();
             motor2.stop();
             state = EJECT_RETRACTING;
@@ -120,7 +139,7 @@ void Ejector::idle(unsigned long now)
         }
         break;
       case EJECT_RETRACTING:
-        if (now > eject_tm + 400) {
+        if (now > eject_tm + 500) {
             motor1.stop();
             motor2.stop();
             state = EJECT_OK;

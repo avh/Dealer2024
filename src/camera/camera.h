@@ -8,8 +8,8 @@
 class Camera : IdleComponent {
   public:
     int frame_nr = 0;
-    unsigned long next_capture_tm = 0;
-    int last_card = CARD_NULL;
+    unsigned long frame_tm = 0;
+    volatile int last_card = CARD_NULL;
 
   public:
     Camera() : IdleComponent("capture", 1000) {}

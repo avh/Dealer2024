@@ -36,6 +36,7 @@ Image latest;
 Image tmp;
 Image card;
 Image suit;
+Image cardsuit;
 
 float *vignet = NULL;
 float vignet_f = 0;
@@ -108,10 +109,11 @@ void Camera::init()
     //config.pixel_format = PIXFORMAT_JPEG;
     config.pixel_format = PIXFORMAT_RGB565;
     //config.pixel_format = PIXFORMAT_GRAYSCALE;
-    config.grab_mode = CAMERA_GRAB_WHEN_EMPTY;
+    //config.grab_mode = CAMERA_GRAB_WHEN_EMPTY;
+    config.grab_mode = CAMERA_GRAB_LATEST;
     config.fb_location = CAMERA_FB_IN_PSRAM;
-    config.jpeg_quality = 12;
-    config.fb_count = 1;
+    config.jpeg_quality = 0;
+    config.fb_count = 2;
 
     // camera init
     esp_err_t err = esp_camera_init(&config);
@@ -135,12 +137,6 @@ void Camera::init()
     s->set_bpc(s, 0);
     s->set_wpc(s, 0);
     s->set_raw_gma(s, 0);
-        
-    // drop down frame size for higher initial frame rate
-    if (config.pixel_format == PIXFORMAT_JPEG){
-        s->set_framesize(s, FRAMESIZE_QVGA);
-    }
-    next_capture_tm = millis();
 
     WebServer::add("/original.jpg", [](HTTP &http) {
         camera_fb_t *fb = cam.capture();
@@ -149,6 +145,7 @@ void Camera::init()
             http.close();
             return;
         }
+
 
         char buf[32];
         snprintf(buf, sizeof(buf), "Captured Frame %d", cam.frame_nr);
@@ -165,23 +162,18 @@ void Camera::init()
         http.close();
     });
 
-    WebServer::add("/capture.jpg", [](HTTP &http) {
-        if (!cam.captureCard()) {
-            http.header(404, "Capture Failed");
-            http.close();
-            return;
-        }
-
-        unsigned long tm = millis();
-        latest.save("/latest.jpg");
-        card.save("/card.jpg");
-        suit.save("/suit.jpg");
-        dprintf("saved in %lu ms", millis() - tm);
-        
-        //latest.debug("LATEST IMAGE");
-        http.path = "/latest.jpg";
-        WebServer::file_get_handler(http);
-    });
+    WebServer::add("/latest.jpg", [](HTTP &http) {
+        latest.send(http);
+    }); 
+    WebServer::add("/cardsuit.jpg", [](HTTP &http) {
+        cardsuit.send(http);
+    }); 
+    WebServer::add("/card.jpg", [](HTTP &http) {
+        card.send(http);
+    }); 
+    WebServer::add("/suit.jpg", [](HTTP &http) {
+        suit.send(http);
+    }); 
 
     WebServer::add("/controls", [](HTTP &http) {
         http.header(200, "Controls");
@@ -245,30 +237,28 @@ void Camera::idle(unsigned long now)
 
 camera_fb_t *Camera::capture()
 {
-    light.on(100, 500);
+    unsigned long tm = millis();
+    // turn on the light
+    light.on(100, 1000);
 
     // wait for the light to come on
-    while (millis() < light.on_tm + 100) {
+    while (millis() < light.on_tm + 250) {
         delay(1);
     }
-    // wait for the next frame to be ready
-    while (millis() < next_capture_tm) {
+    // wait for the next frame
+    while (millis() < frame_tm + 33) {
         delay(1);
     }
-    // capture frame
+
     camera_fb_t *fb = esp_camera_fb_get();
-    // work around bug in esp_camera_fb_get
-    if (fb != NULL) {
-        esp_camera_fb_return(fb);
-        fb = esp_camera_fb_get();
-    }
     if (fb == NULL) {
         dprintf("camera: esp_camera_fb_get failed");
         return NULL;
     }
-
-    next_capture_tm = millis() + 34;
+    
+    frame_tm = millis();
     frame_nr += 1;
+    dprintf("camera: capture took %dms, frame=%d", int(millis() - tm), frame_nr);
     return fb;
 }
 
@@ -301,6 +291,21 @@ bool Camera::captureCard(int learn_card)
         // REMIND: learn
         dprintf("setting last_card to learn_card=%d", learn_card);
         last_card = learn_card;
+        if (learn_card == 0) {
+            cardsuit.init(NCARDS * CARDSUIT_WIDTH, NSUITS * CARDSUIT_HEIGHT);
+        }
+    }
+    if (false && cardsuit.data != NULL) {
+        int c = CARD(last_card);
+        int r = SUIT(last_card);
+        cardsuit.copy(c * CARDSUIT_WIDTH,r * CARDSUIT_HEIGHT, card);
+        cardsuit.copy(c * CARDSUIT_WIDTH,r * CARDSUIT_HEIGHT + CARD_HEIGHT + 2, suit);
+    }
+    if (true && cardsuit.data != NULL) {
+        int c = CARD(last_card);
+        int r = SUIT(last_card);
+        Image tmp = latest.crop(21, 26, CARDSUIT_WIDTH, CARDSUIT_HEIGHT);
+        cardsuit.copy(c * CARDSUIT_WIDTH,r * CARDSUIT_HEIGHT, tmp);
     }
     return true;
 }

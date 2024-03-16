@@ -28,6 +28,7 @@ class Button : public IdleComponent {
     bool state = false;
     int clicks = 0;
     int duration = 0;
+    int tmp_card = 0;
   public:
     Button(const char *name, int but, int active_state = LOW) : IdleComponent(name), but(but), active_state(active_state) {
     }
@@ -70,7 +71,8 @@ class Button : public IdleComponent {
       if (card.state) {
         ejector.eject();
       } else {
-        ejector.load();
+        // REMIND: learning
+        ejector.load(true);
       }
     }
     virtual void hold() {}
@@ -93,6 +95,84 @@ class Idler : IdleComponent {
 
 
 Idler idler;
+
+//
+// Dealer
+//
+enum DealerState {
+  DEALER_IDLE,
+  DEALER_DEALING,
+  DEALER_LEARNING,
+};
+
+extern class Dealer dealer;
+
+class Dealer : public IdleComponent {
+  public:
+    DealerState state = DEALER_IDLE;
+  public:
+    Dealer() : IdleComponent("Dealer", 1) {
+    }
+
+    virtual void init()
+    {
+      www.add("/learn", [] (HTTP &http) {
+        if (card.state || dealer.state != DEALER_IDLE) {
+          http.header(404, "Invalid State");
+          http.close();
+          return;
+        }
+        if (!ejector.load(true)) {
+          http.header(404, "Load failed");
+          http.close();
+          return;
+        }
+        http.header(200, "Learning Started");
+        http.close();
+        dealer.state = DEALER_LEARNING;
+      });
+    }
+
+    virtual void idle(unsigned long now) 
+    {
+      switch (state) {
+        case DEALER_IDLE:
+          break;
+        case DEALER_DEALING:
+          // REMIND
+          break;
+        case DEALER_LEARNING:
+          switch (ejector.state) {
+            case EJECT_IDLE:
+            case EJECT_OK:
+              if (ejector.loaded_card != CARD_EMPTY) {
+                dprintf("learning learn=%d current=%d loaded=%d", ejector.learn_card, ejector.current_card, ejector.loaded_card);
+                ejector.eject();
+              } else if (ejector.loaded_card == CARD_EMPTY) {
+                if (ejector.learn_card == 52) {
+                  dprintf("learning succeeded");
+                  bus.request(CAMERA_ADDR, (const unsigned char []){CMD_COMMIT}, 0, NULL, 0);
+                } else {
+                  dprintf("learning failed, deck is ncards=%d", ejector.learn_card-1);
+                }
+                state = DEALER_IDLE;
+                ejector.learning = false;
+              }
+              break;
+            case EJECT_FAILED:
+              dprintf("learning failed, state=%d",  ejector.state);
+              state = DEALER_IDLE;
+              ejector.learning = false;
+              break;
+            default:
+              break;
+          }
+          break;
+      }
+    }
+};
+
+Dealer dealer;
 
 //
 // Main Program

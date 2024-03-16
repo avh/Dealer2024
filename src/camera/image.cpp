@@ -1,6 +1,7 @@
 // (c)2024, Arthur van Hoff, Artfahrt Inc.
 #include <esp_camera.h>
 #include "image.h"
+#include "webserver.h"
 
 Image::Image() : data(NULL), width(0), height(0), stride(0), owned(false)
 {
@@ -23,6 +24,7 @@ bool Image::init(int width, int height)
 {
   if (owned && data != NULL) {
     if (this->width == width && this->height == height) {
+      bzero(data, width * height);
       return true;
     }
     ::free(data);
@@ -30,6 +32,8 @@ bool Image::init(int width, int height)
   this->data = (pixel *)malloc(width * height * sizeof(pixel));
   if (data == NULL) {
     dprintf("WARNING: failed to allocate %d bytes for %dx%d image", width * height * sizeof(pixel), width, height);
+  } else {
+    bzero(data, width * height);
   }
   this->width = width;
   this->height = height;
@@ -102,6 +106,26 @@ int Image::save(const char *fname)
     return 0;
 }
 
+void Image::send(HTTP &http)
+{
+    camera_fb_t fb;
+    fb.buf = data;
+    fb.len = stride * width;
+    fb.width = width;
+    fb.height = height;
+    fb.format = PIXFORMAT_GRAYSCALE;
+
+    http.header(200, "File Follows");
+    http.printf("Content-Type: image/jpeg\n");
+    http.body();
+    dprintf("sending %s", http.path.c_str());
+    frame2jpg_cb(&fb, 80, [](void *arg, size_t index, const void *data, size_t len) -> unsigned int {
+        HTTP *http = (HTTP *)arg;
+        return http->write((unsigned char *)data, len);
+    }, &http); 
+    dprintf("done %s", http.path.c_str());
+    http.close();
+}
 void Image::free()
 {
   if (owned) {
