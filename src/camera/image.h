@@ -8,12 +8,12 @@
 #define CARDSUIT_NCOLS    13
 #define CARDSUIT_NROWS    4
 
-#define CARDSUIT_WIDTH        40
+#define CARDSUIT_WIDTH        38
 #define CARDSUIT_HEIGHT       100
 #define CARD_WIDTH            CARDSUIT_WIDTH
-#define CARD_HEIGHT           60
+#define CARD_HEIGHT           54
 #define SUIT_WIDTH            CARDSUIT_WIDTH
-#define SUIT_HEIGHT           50
+#define SUIT_HEIGHT           44
 #define SUIT_OFFSET           (CARDSUIT_HEIGHT - SUIT_HEIGHT)
 
 #define CARD_MATCH_NONE       -1
@@ -59,5 +59,6 @@ class Image {
     ~Image();
 
   private:
-    int vlocate(int ymin, int ymax);
+    int hlocate(int xmin, int xmax, int w);
+    int vlocate(int ymin, int ymax, int h);
 };

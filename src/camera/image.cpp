@@ -155,83 +155,80 @@ void image_init()
 
 bool Image::locate(Image &tmp, Image &card, Image &suit)
 { 
-  int n = width;
-  std::unique_ptr<int[]> sums(new int[n]);
-  bzero((void *)sums.get(), n*sizeof(int));
-
-  // determine horizontal position
-  for (int c = 0 ; c < width ; c++) {
-    int sum = 0;
-    pixel *p = data + c;
-    for (int i = 0 ; i < height ; i++, p += stride) {
-      sum += *p;
-    }
-    sums[c] = sum;
-  }
-
-  // smooth and locate horizontally
-  int bestx = 0;
-  int x = 0;
-  int *p = sums.get();
-  for (int c = 1 ; c < width - CARDSUIT_WIDTH - 1; c++, p++) {
-    int sum = p[0] + p[1]*4 + p[2] + p[CARDSUIT_WIDTH + 0] + p[CARDSUIT_WIDTH + 1]*4 + p[CARDSUIT_WIDTH + 2];
-    if (bestx < sum) {
-      bestx = sum;
-      x = c;
-    }
-  }
-
-  // adjust brightness per line into tmp
+  int x = hlocate(0, width/2, CARDSUIT_WIDTH);
   tmp.init(CARDSUIT_WIDTH, height);
-  for (int r = 0 ; r < tmp.height ; r++) {
-    pixel *src = data + x + r*stride;
-    pixel *dst = tmp.data + r*tmp.stride;
-    int pmin = src[0];
-    int pmax = pmin;
-    for (int c = 1 ; c < CARDSUIT_WIDTH ; c++) {
-      pmin = min(pmin, src[c]);
-      pmax = max(pmax, src[c]);
-    }
-    //dprintf("%4d: contrast pmin=%d, pmax=%d", r, pmin, pmax);
-    //int pmax = 250 - (r * 17)/10;
-    //int pmin = 150 - (r * 125)/100;
-    int offset = (pmin < pmax-40) ? pmin : 0;
-    int scale = pmax - offset;
-    //int offset = 0;
-    //int scale = 255;
-    //dprintf("%d: pmin=%d, pmax=%d, offset=%d, scale=%d", r, pmin, pmax, offset, scale);
-    for (int c = 0 ; c < CARDSUIT_WIDTH ; c++) {
-      dst[c] = max(0, min((src[c] - offset) * 255 / scale, 255));
-    }
-  }
+  tmp.copy(0, 0, crop(x, 0, CARDSUIT_WIDTH, height));
 
   // determine vertical location
-  int ycard = tmp.vlocate(25, 50);
-  int ysuit = tmp.vlocate(ycard + SUIT_OFFSET - 1, ycard + SUIT_OFFSET + 10);
-  //dprintf("locate X=%d, YC=%d, YS=%d", x, ycard, ysuit);
+  int ycard = tmp.vlocate(10, 50, CARD_HEIGHT);
+  int ysuit = tmp.vlocate(ycard + SUIT_OFFSET - 10, ycard + SUIT_OFFSET + 10, SUIT_HEIGHT);
+  dprintf("locate X=%d, YC=%d, YS=%d", x, ycard, ysuit);
   card = tmp.crop(0, ycard, CARD_WIDTH, CARD_HEIGHT);
   suit = tmp.crop(0, ysuit, SUIT_WIDTH, SUIT_HEIGHT);
+
   return true;
 }
 
-int Image::vlocate(int ymin, int ymax)
+int Image::hlocate(int xmin, int xmax, int w)
 {
-  ymin = max(0, min(ymin, height));
-  ymax = max(0, min(ymax, height));
-  for (int y = ymin ; y < ymax ; y++) {
-    pixel *src = addr(0, y);
-    int pmin = *src++;
-    int pmax = pmin;
-    for (int x = 1 ; x < width ; x++, src++) {
-      pmin = min(pmin, *src);
-      pmax = max(pmax, *src);
+  int n = xmax - xmin + w;
+  std::unique_ptr<unsigned long[]> sums(new unsigned long[n]);
+  bzero((void *)sums.get(), n*sizeof(int));
+
+  // determine horizontal position
+  for (int i = 0 ; i < n ; i++) {
+    unsigned long sum = 0;
+    pixel *p = addr(xmin + i, 0);
+    for (int j = 0 ; j < height ; j++, p += stride) {
+      long v = p[0] - p[stride];
+      sum += v * v;
     }
-    //dprintf("%3d: ymin=%d, ymax=%d", y, pmin, pmax);
-    if (pmax - pmin > 100) {
-      return max(ymin, y-1);
+    sums[i] = sum;
+  }
+
+  // smooth and locate horizontally
+  unsigned long bestx = 0;
+  int x = -1;
+  unsigned long *p = sums.get();
+  for (int i = 0 ; i < n - w ; i++, p++) {
+    unsigned long sum = p[0]*4 + p[1]*2 + p[2] + p[w - 3] + p[w - 2]*2 + p[w - 1]*4;
+    if (x < 0 || bestx > sum) {
+      bestx = sum;
+      x = xmin + i;
     }
   }
-  return ymin;
+  return x;
+}
+
+int Image::vlocate(int ymin, int ymax, int h)
+{
+  int n = ymax - ymin + h;
+  std::unique_ptr<unsigned long[]> sums(new unsigned long[n]);
+  bzero((void *)sums.get(), n*sizeof(int));
+
+  // determine horizontal position
+  for (int i = 0 ; i < n ; i++) {
+    unsigned long sum = 0;
+    pixel *p = addr(0, ymin + i);
+    for (int j = 0 ; j < width ; j++, p += 1) {
+      long v = p[0] - p[1];
+      sum += v * v;
+    }
+    sums[i] = sum;
+  }
+
+  // smooth and locate vertically
+  unsigned long besty = 0;
+  int y = -1;
+  unsigned long *p = sums.get();
+  for (int i = 0 ; i < n - h ; i++, p++) {
+    unsigned long sum = p[0]*4 + p[1]*2 + p[2] + p[h - 3] + p[h - 2]*2 + p[h - 1]*4;
+    if (y < 0 || besty > sum) {
+      besty = sum;
+      y = ymin + i;
+    }
+  }
+  return y;
 }
 
 int Image::match(const Image &img)

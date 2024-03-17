@@ -10,6 +10,7 @@ enum EjectState {
     EJECT_RETRACTING,
     EJECT_EJECTING,
     EJECT_LOADING,
+    EJECT_FINISH,
     EJECT_FAILED,
     EJECT_OK,
 };

@@ -30,7 +30,8 @@
 #define g565(v)     ((((v) & 0x0007) << 5) | (((v) & 0xE000) >> 11))
 #define b565(v)     (((v) & 0x1F00) >> 5)
 
-#define convert565(v) (r565(v) + b565(v) + (g565(v)<<1))
+//#define convert565(v) (r565(v) + b565(v) + (g565(v)<<1))
+#define convert565(v) ((b565(v) + g565(v))<<1)
 
 Image latest;
 Image tmp;
@@ -250,7 +251,7 @@ camera_fb_t *Camera::capture()
         delay(1);
     }
     // wait for the next frame
-    while (millis() < frame_tm + 33) {
+    while (millis() < frame_tm + 50) {
         delay(1);
     }
 
