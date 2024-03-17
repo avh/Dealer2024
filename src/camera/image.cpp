@@ -108,6 +108,11 @@ int Image::save(const char *fname)
 
 void Image::send(HTTP &http)
 {
+    if (data == NULL) {
+      http.header(404, "Image Not Initialized");
+      http.close();
+      return;
+    }
     camera_fb_t fb;
     fb.buf = data;
     fb.len = stride * width;

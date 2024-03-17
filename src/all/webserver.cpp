@@ -163,7 +163,6 @@ void WebServer::add(const char *path, void (*handler)(HTTP &))
 //
 // HTTP
 //
-
 void WebServer::file_put_handler(HTTP &http)
 {
   if (http.method != "PUT") {
@@ -335,12 +334,15 @@ int HTTP::idle(WebServer *server, unsigned long now)
         break;
       }
     }
+#if 0
     if (state == HTTP_DISPATCH) {
       //dprintf("METHOD '%s' PATH '%s'", method.c_str(), path.c_str()); 
       handler = method == "PUT" ? WebServer::file_put_handler : WebServer::file_get_handler;
       state = HTTP_HEADER;
     }
+#endif
   }
+
   // handle request, generate response
   if (state < HTTP_CLOSED) {
     handler(*this);

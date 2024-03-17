@@ -37,6 +37,7 @@ Image tmp;
 Image card;
 Image suit;
 Image cardsuit;
+Image overview;
 
 float *vignet = NULL;
 float vignet_f = 0;
@@ -174,6 +175,9 @@ void Camera::init()
     WebServer::add("/suit.jpg", [](HTTP &http) {
         suit.send(http);
     }); 
+    WebServer::add("/overview.jpg", [](HTTP &http) {
+        overview.send(http);
+    }); 
 
     WebServer::add("/controls", [](HTTP &http) {
         http.header(200, "Controls");
@@ -272,10 +276,10 @@ bool Camera::captureCard(int learn_card)
     }
 
     // pick useful region
-    int x = 140;
-    int y = 135;
-    int w = 350;
-    int h = 150;
+    int x = 150;
+    int y = 140;
+    int w = 300;
+    int h = 140;
     unpack_565((unsigned short *)fb->buf + x + y * fb->width, fb->width, w, h, latest);
     esp_camera_fb_return(fb);
 
@@ -293,19 +297,19 @@ bool Camera::captureCard(int learn_card)
         last_card = learn_card;
         if (learn_card == 0) {
             cardsuit.init(NCARDS * CARDSUIT_WIDTH, NSUITS * CARDSUIT_HEIGHT);
+            overview.init(NCARDS * latest.width, NSUITS * latest.height);
         }
     }
-    if (false && cardsuit.data != NULL) {
+    if (cardsuit.data != NULL) {
         int c = CARD(last_card);
         int r = SUIT(last_card);
-        cardsuit.copy(c * CARDSUIT_WIDTH,r * CARDSUIT_HEIGHT, card);
-        cardsuit.copy(c * CARDSUIT_WIDTH,r * CARDSUIT_HEIGHT + CARD_HEIGHT + 2, suit);
+        cardsuit.copy(c * CARDSUIT_WIDTH, r * CARDSUIT_HEIGHT, card);
+        cardsuit.copy(c * CARDSUIT_WIDTH, r * CARDSUIT_HEIGHT + CARD_HEIGHT + 2, suit);
     }
-    if (true && cardsuit.data != NULL) {
+    if (true && overview.data != NULL) {
         int c = CARD(last_card);
         int r = SUIT(last_card);
-        Image tmp = latest.crop(21, 26, CARDSUIT_WIDTH, CARDSUIT_HEIGHT);
-        cardsuit.copy(c * CARDSUIT_WIDTH,r * CARDSUIT_HEIGHT, tmp);
+        overview.copy(c * latest.width, r * latest.height, latest);
     }
     return true;
 }

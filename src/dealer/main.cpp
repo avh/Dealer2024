@@ -10,8 +10,8 @@
 
 // Components
 BusMaster bus;
-Motor motor1("Motor1", M1_PIN1, M1_PIN2, 400, 10000);
-Motor motor2("Motor2", M2_PIN1, M2_PIN2, 400, 10000);
+Motor motor1("Motor1", M1_PIN1, M1_PIN2, 400, 5000);
+Motor motor2("Motor2", M2_PIN1, M2_PIN2, 400, 5000);
 Motor fan("Fan", FN_PIN1, FN_PIN2, 100, 100000, 2000);
 Motor rotator("Rotator", MR_PIN1, MR_PIN2, 400, 400);
 AngleSensor angle("Angle");

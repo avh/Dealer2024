@@ -7,7 +7,7 @@
 #include "webserver.h"
 
 WebServer www;
-SDCard sdcard;
+//SDCard sdcard;
 LEDArray light("camera-light", 8, 200);
 Camera cam;
 

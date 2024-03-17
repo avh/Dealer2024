@@ -15,7 +15,7 @@ bool Ejector::captureCard()
             return true;
         }
     }
-    delay(100);
+    delay(300);
     unsigned char buf[] = {CMD_CAPTURE, card};
     int result = bus.request(CAMERA_ADDR, buf, sizeof(buf));
     return result;
@@ -120,9 +120,9 @@ void Ejector::idle(unsigned long now)
         }
         break;
       case EJECT_LOADING:
-        if (card.state && now > card.last_tm + 60) {
+        if (card.state && now > card.last_tm + 70) {
             motor1.reverse();
-            motor2.stop();
+            motor2.reverse();
             state = EJECT_RETRACTING;
             dprintf("load done, retracting");
             loaded_card = current_card;
@@ -139,7 +139,7 @@ void Ejector::idle(unsigned long now)
         }
         break;
       case EJECT_RETRACTING:
-        if (now > eject_tm + 500) {
+        if (now > eject_tm + 100) {
             motor1.stop();
             motor2.stop();
             state = EJECT_OK;
