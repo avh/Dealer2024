@@ -1,5 +1,6 @@
 // (c)2024, Arthur van Hoff, Artfahrt Inc.
 #include <esp_camera.h>
+#include <JPEGDecoder.h>
 #include "image.h"
 #include "webserver.h"
 
@@ -91,17 +92,17 @@ int Image::save(const char *fname)
     fb.height = height;
     fb.format = PIXFORMAT_GRAYSCALE;
 
+    unsigned long tm = millis();
     File file = SD.open(fname, FILE_WRITE);
     if (!file) {
         dprintf("error: failed to open for write: %s", fname);
         return 1;
     }
-    dprintf("writing %s", fname);
     frame2jpg_cb(&fb, 80, [](void *arg, size_t index, const void *data, size_t len) -> unsigned int {
         File *file = (File *)arg;
         return file->write((unsigned char *)data, len);
     }, &file); 
-    dprintf("done %s", fname);
+    dprintf("saved %s in %lums", fname, millis() - tm);
     file.close();
     return 0;
 }
@@ -131,6 +132,38 @@ void Image::send(HTTP &http)
     dprintf("done %s", http.path.c_str());
     http.close();
 }
+
+bool Image::load(const char *fname) {
+  File f = SD.open(fname, FILE_READ);
+  if (!f) {
+    dprintf("image: failed to open %s", fname);
+    return false;
+  }
+  JpegDec.decodeSdFile(f);
+  if (!JpegDec.width || !JpegDec.height) {
+    dprintf("image: failed to decode %s", fname);
+    return false;
+  }
+  dprintf("image: %dx%dx%d,%d", JpegDec.width, JpegDec.height, JpegDec.comps, JpegDec.scanType);
+  init(JpegDec.width, JpegDec.height);
+
+  while (JpegDec.read()) {
+    dprintf("got MCU %d,%d,%dx%d", JpegDec.MCUx, JpegDec.MCUy, JpegDec.MCUHeight, JpegDec.MCUWidth);
+    uint16_t *pImg = JpegDec.pImage;
+    int xoff = JpegDec.MCUx * JpegDec.MCUWidth;
+    int yoff = JpegDec.MCUy * JpegDec.MCUHeight;
+    int w = min(JpegDec.MCUWidth, width - xoff);
+    int h = min(JpegDec.MCUHeight, height - yoff);
+    for (int y = 0 ; y < h ; y++) {
+      for (int x = 0 ; x < w ; x++) {
+        *addr(xoff + x, yoff + y) = *pImg++ >> 8;
+      }
+    }
+  }
+  JpegDec.abort();
+  return true;
+}
+
 void Image::free()
 {
   if (owned) {
@@ -162,7 +195,7 @@ bool Image::locate(Image &tmp, Image &card, Image &suit)
   // determine vertical location
   int ycard = tmp.vlocate(10, 50, CARD_HEIGHT);
   int ysuit = tmp.vlocate(ycard + SUIT_OFFSET - 10, ycard + SUIT_OFFSET + 10, SUIT_HEIGHT);
-  dprintf("locate X=%d, YC=%d, YS=%d", x, ycard, ysuit);
+  //dprintf("locate X=%d, YC=%d, YS=%d", x, ycard, ysuit);
   card = tmp.crop(0, ycard, CARD_WIDTH, CARD_HEIGHT);
   suit = tmp.crop(0, ysuit, SUIT_WIDTH, SUIT_HEIGHT);
 

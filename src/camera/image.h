@@ -55,6 +55,7 @@ class Image {
 
     void send(class HTTP& http);
     int save(const char *fname);
+    bool load(const char *fname);
     void free();
     ~Image();
 

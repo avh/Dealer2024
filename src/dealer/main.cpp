@@ -151,9 +151,11 @@ class Dealer : public IdleComponent {
               } else if (ejector.loaded_card == CARD_EMPTY) {
                 if (ejector.learn_card == 52) {
                   dprintf("learning succeeded");
-                  bus.request(CAMERA_ADDR, (const unsigned char []){CMD_COMMIT}, 0, NULL, 0);
                 } else {
                   dprintf("learning failed, deck is ncards=%d", ejector.learn_card-1);
+                }
+                if (ejector.learn_card > 0) {
+                  bus.request(CAMERA_ADDR, (const unsigned char []){CMD_COLLATE}, 1, NULL, 0);
                 }
                 state = DEALER_IDLE;
                 ejector.learning = false;
@@ -163,6 +165,9 @@ class Dealer : public IdleComponent {
               dprintf("learning failed, state=%d",  ejector.state);
               state = DEALER_IDLE;
               ejector.learning = false;
+              if (ejector.learn_card > 0) {
+                  bus.request(CAMERA_ADDR, (const unsigned char []){CMD_COLLATE}, 1, NULL, 0);
+              }
               break;
             default:
               break;

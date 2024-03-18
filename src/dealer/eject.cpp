@@ -112,17 +112,17 @@ void Ejector::idle(unsigned long now)
             eject_tm = now;
             dprintf("loading after eject");
             loaded_card = CARD_NULL;
-        } else if (now > eject_tm + 300) {
+        } else if (now > eject_tm + 500) {
             state = EJECT_FAILED;
             motor1.stop();
             motor2.stop();
-            dprintf("eject aborted");
+            dprintf("eject aborted, card=%d", card.state);
         }
         break;
       case EJECT_LOADING:
         if (card.state && now > card.last_tm + 70) {
             motor1.reverse();
-            motor2.reverse();
+            motor2.stop();
             state = EJECT_RETRACTING;
             dprintf("load done, retracting");
             loaded_card = current_card;

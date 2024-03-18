@@ -39,6 +39,9 @@ Image card;
 Image suit;
 Image cardsuit;
 Image overview;
+Image cards;
+Image suits;
+extern WebServer www;
 
 float *vignet = NULL;
 float vignet_f = 0;
@@ -140,6 +143,19 @@ void Camera::init()
     s->set_wpc(s, 0);
     s->set_raw_gma(s, 0);
 
+    if (cards.load("/cards.jpg")) {
+        if (cards.width != CARD_WIDTH * 13 || cards.height != CARD_HEIGHT) {
+            dprintf("ERROR: cards image has wrong dimensions: %dx%d", cards.width, cards.height);
+            cards.free();
+        } else if (suits.load("/suits.jpg")) {
+            if (suits.width != SUIT_WIDTH * 4 || suits.height != SUIT_HEIGHT) {
+                dprintf("ERROR: suits image has wrong dimensions: %dx%d", suits.width, suits.height);
+                cards.free();
+                suits.free();
+            }
+        }
+    }
+
     WebServer::add("/original.jpg", [](HTTP &http) {
         camera_fb_t *fb = cam.capture();
         if (fb == NULL) {
@@ -173,12 +189,26 @@ void Camera::init()
     WebServer::add("/card.jpg", [](HTTP &http) {
         card.send(http);
     }); 
+    WebServer::add("/cards.jpg", [](HTTP &http) {
+        cards.send(http);
+    }); 
     WebServer::add("/suit.jpg", [](HTTP &http) {
         suit.send(http);
+    }); 
+    WebServer::add("/suits.jpg", [](HTTP &http) {
+        suits.send(http);
     }); 
     WebServer::add("/overview.jpg", [](HTTP &http) {
         overview.send(http);
     }); 
+    www.add("/commit", [] (class HTTP& http) {
+        if (cards.data != NULL) {
+            cards.save("/cards.jpg");
+        }
+        if (suits.data != NULL) {
+            suits.save("/suits.jpg");
+        }
+    });
 
     WebServer::add("/controls", [](HTTP &http) {
         http.header(200, "Controls");
@@ -298,7 +328,7 @@ bool Camera::captureCard(int learn_card)
         last_card = learn_card;
         if (learn_card == 0) {
             cardsuit.init(NCARDS * CARDSUIT_WIDTH, NSUITS * CARDSUIT_HEIGHT);
-            overview.init(NCARDS * latest.width, NSUITS * latest.height);
+            //overview.init(NCARDS * latest.width, NSUITS * latest.height);
         }
     }
     if (cardsuit.data != NULL) {
@@ -307,7 +337,7 @@ bool Camera::captureCard(int learn_card)
         cardsuit.copy(c * CARDSUIT_WIDTH, r * CARDSUIT_HEIGHT, card);
         cardsuit.copy(c * CARDSUIT_WIDTH, r * CARDSUIT_HEIGHT + CARD_HEIGHT + 2, suit);
     }
-    if (true && overview.data != NULL) {
+    if (overview.data != NULL) {
         int c = CARD(last_card);
         int r = SUIT(last_card);
         overview.copy(c * latest.width, r * latest.height, latest);
@@ -321,7 +351,36 @@ void Camera::clearCard()
     last_card = CARD_NULL;
 }
 
-void Camera::commit()
+void Camera::collate()
 {
-    // REMIND: later
+    dprintf("collate");
+    if (cardsuit.data != NULL) {
+        // cards
+        cards.init(NCARDS * CARD_WIDTH, CARD_HEIGHT);
+        for (int y = 0 ; y < cards.height; y++) {
+            for (int x = 0 ; x < cards.width ; x++) {
+                unsigned long sum = 0;
+                for (int i = 0 ; i < NSUITS ; i++) {
+                    sum += *cardsuit.addr(x, y + i * CARDSUIT_HEIGHT);
+                }
+                *cards.addr(x, y) = sum / NSUITS;
+            }
+        }
+        dprintf("update cards");
+
+        // suits
+        suits.init(NSUITS * SUIT_WIDTH, SUIT_HEIGHT);
+        for (int s = 0 ; s < 4 ; s++) {
+            for (int y = 0 ; y < SUIT_HEIGHT; y++) {
+                for (int x = 0 ; x < SUIT_WIDTH ; x++) {
+                    unsigned long sum = 0;
+                    for (int i = 0 ; i < NCARDS ; i++) {
+                        sum += *cardsuit.addr(x + i * CARDSUIT_WIDTH, y + s * CARDSUIT_HEIGHT + CARD_HEIGHT + 2);
+                    }
+                    *suits.addr(x + s * SUIT_WIDTH, y) = sum / NCARDS;
+                }
+            }
+        }
+        dprintf("update suits");
+    }
 }

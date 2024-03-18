@@ -39,19 +39,6 @@ static void handle_listdir(HTTP &http, const char *path, int depth = 0)
 
 void SDCard::init() 
 {
-    if (!SD.begin(21)){
-        dprintf("SD: mount failed");
-        return;
-    }
-    uint8_t cardType = SD.cardType();
-
-    if (cardType == CARD_NONE){
-        dprintf("SD: no card found");
-        return;
-    }
-    //uint64_t cardSize = SD.cardSize() / (1024 * 1024);
-    //dprintf("SD: mounted, %llu MB", cardSize);
-
     WebServer::add("/list", [](HTTP &http) {
         http.header(200, "List Follows");
         http.body();
@@ -59,4 +46,20 @@ void SDCard::init()
         handle_listdir(http, "/");
         http.close();
     });
+
+    for (int i = 0 ; !SD.begin(21) ; i++){
+        dprintf("SD: mount failed, attempt=%d/5", i);
+        delay(i*200);
+        if (i > 5) {
+            return;
+        }
+    }
+    uint8_t cardType = SD.cardType();
+    if (cardType == CARD_NONE){
+        dprintf("SD: no card found");
+        return;
+    }
+    //uint64_t cardSize = SD.cardSize() / (1024 * 1024);
+    //dprintf("SD: mounted, %llu MB", cardSize);
+    mounted = true;
 }

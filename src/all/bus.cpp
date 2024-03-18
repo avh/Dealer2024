@@ -74,6 +74,10 @@ bool BusMaster::check(uint8_t addr)
 
 bool BusMaster::request(uint8_t addr, const unsigned char *req, int reqlen, unsigned char *res, int reslen)
 {
+    if (reqlen < 1) {
+        dprintf("bus: error, request too short, reqlen=%d", reqlen);
+        return false;
+    }
     static int last_error_addr = -1;
     Wire.beginTransmission(addr);
     Wire.write(req, reqlen);

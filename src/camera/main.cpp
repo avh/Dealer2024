@@ -1,15 +1,19 @@
 // (c)2024, Arthur van Hoff, Artfahrt Inc.
+#include <WiFi.h>
 #include "util.h"
 #include "bus.h"
 #include "light.h"
 #include "sdcard.h"
+#include "image.h"
 #include "camera.h"
 #include "webserver.h"
 
 WebServer www;
-//SDCard sdcard;
+SDCard sdcard;
 LEDArray light("camera-light", 8, 200);
 Camera cam;
+extern Image cards;
+extern Image suits;
 
 class Idler : public IdleComponent {
   public:
@@ -19,7 +23,7 @@ class Idler : public IdleComponent {
     }
 
     virtual void idle(unsigned long now) {
-      dprintf("%5d: %s, wifi=%d, light=%d, frame=%d", i++, name, www.connected, light.value, cam.frame_nr);
+      dprintf("%5d: %s, wifi=%d, sd=%d, light=%d, frame=%d", i++, name, www.connected, sdcard.mounted, light.value, cam.frame_nr);
     }
 } idler;
 
@@ -34,6 +38,19 @@ BusSlave bus(CAMERA_ADDR, [] (BusSlave &bus) {
       bus.res[0] = cam.last_card;
       bus.reslen = 1;
       break;
+    case CMD_STATUS:
+      bus.reqlen = 0;
+      bus.reslen = 5;
+      bzero(bus.res, bus.reslen);
+      bus.res[0] = cards.data != NULL && suits.data != NULL;
+      if (WiFi.status() == WL_CONNECTED) {
+        IPAddress ip = WiFi.localIP();
+        bus.res[1] = ip[0];
+        bus.res[2] = ip[1]; 
+        bus.res[3] = ip[2];
+        bus.res[4] = ip[3];
+      }
+      break;
     default:
       break;
   }
@@ -46,8 +63,8 @@ BusSlave bus(CAMERA_ADDR, [] (BusSlave &bus) {
     case CMD_CAPTURE:
       cam.captureCard(bus.req[1]);
       break;
-    case CMD_COMMIT:
-      cam.commit();
+    case CMD_COLLATE:
+      cam.collate();
       break;
     default:
       break;

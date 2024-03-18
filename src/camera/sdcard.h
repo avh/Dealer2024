@@ -5,6 +5,8 @@
 
 class SDCard : public InitComponent {
   public:
+    bool mounted = false;
+  public:
     SDCard() : InitComponent("SD") {}
     virtual void init();
 };

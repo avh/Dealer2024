@@ -19,7 +19,7 @@ class Camera : IdleComponent {
     camera_fb_t *capture();
     bool captureCard(int learn_card = CARD_NULL);
     void clearCard();
-    void commit();
+    void collate();
 };
 
 extern LEDArray light;
