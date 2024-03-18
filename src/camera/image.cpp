@@ -134,6 +134,7 @@ void Image::send(HTTP &http)
 }
 
 bool Image::load(const char *fname) {
+  unsigned long ms = millis();
   File f = SD.open(fname, FILE_READ);
   if (!f) {
     dprintf("image: failed to open %s", fname);
@@ -144,11 +145,9 @@ bool Image::load(const char *fname) {
     dprintf("image: failed to decode %s", fname);
     return false;
   }
-  dprintf("image: %dx%dx%d,%d", JpegDec.width, JpegDec.height, JpegDec.comps, JpegDec.scanType);
   init(JpegDec.width, JpegDec.height);
 
   while (JpegDec.read()) {
-    dprintf("got MCU %d,%d,%dx%d", JpegDec.MCUx, JpegDec.MCUy, JpegDec.MCUHeight, JpegDec.MCUWidth);
     uint16_t *pImg = JpegDec.pImage;
     int xoff = JpegDec.MCUx * JpegDec.MCUWidth;
     int yoff = JpegDec.MCUy * JpegDec.MCUHeight;
@@ -160,6 +159,7 @@ bool Image::load(const char *fname) {
       }
     }
   }
+  dprintf("image: loaded %dx%d in %lums", JpegDec.width, JpegDec.height, millis()- ms);
   JpegDec.abort();
   return true;
 }
