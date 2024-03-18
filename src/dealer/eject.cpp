@@ -139,7 +139,7 @@ void Ejector::idle(unsigned long now)
         }
         break;
       case EJECT_RETRACTING:
-        if (now > eject_tm + 100) {
+        if (now > eject_tm + 140) {
             eject_tm = now;
             motor1.stop();
             motor2.stop();

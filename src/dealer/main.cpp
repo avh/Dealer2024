@@ -71,8 +71,7 @@ class Button : public IdleComponent {
       if (card.state) {
         ejector.eject();
       } else {
-        // REMIND: learning
-        ejector.load(true);
+        ejector.load();
       }
     }
     virtual void hold() {}

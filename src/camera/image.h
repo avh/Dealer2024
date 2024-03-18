@@ -51,7 +51,9 @@ class Image {
     // card/suit specific operations
     //
     bool locate(Image &tmp, Image &card, Image &suit);
-    int match(const Image &img);
+    float distance(Image &other);
+    int match(Image &samples);
+
 
     void send(class HTTP& http);
     int save(const char *fname);

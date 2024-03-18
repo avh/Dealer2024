@@ -264,27 +264,35 @@ int Image::vlocate(int ymin, int ymax, int h)
   return y;
 }
 
-int Image::match(const Image &img)
+float Image::distance(Image &other)
 {
-  int n = width / img.width;
-  int bestd = 999999999;
-  int bestm = -1;
-  for (int i = 0 ; i < n ; i++) {
-    int dist = 0;
-    for (int r = 0 ; r < img.height ; r++) {
-      const pixel *p1 = addr(i*img.width, r);
-      const pixel *p2 = img.addr(0, r);
-      for (int c = 0 ; c < img.width ; c++, p1++, p2++) {
-        int d = *p1 - *p2;
-        dist += d*d;
-      }
-    }
-    //dprintf("match %d = %d", i, dist);
-    if (bestd > dist) {
-      bestd = dist;
-      bestm = i;
+  float dist = 0;
+  for (int r = 0 ; r < height ; r++) {
+    const pixel *p1 = addr(0, r);
+    const pixel *p2 = other.addr(0, r);
+    for (int c = 0 ; c < width ; c++) {
+      float d = *p1++ - *p2++;
+      dist += d * d;
     }
   }
-  //dprintf("bestm=%d, bestd=%d", bestm, bestd);
-  return bestm;
+  return sqrt(dist / (width * height));
 }
+
+int Image::match(Image &samples)
+{
+  int n = samples.width / width;
+  int besti = -1;
+  float bestd = 0;
+  for (int i = 0 ; i < n ; i++) {
+    Image sample = samples.crop(i*width, 0, width, height);
+    float d = distance(sample);
+    //dprintf("distance %d: %f", i, d);
+    if (besti < 0 || d < bestd) {
+      besti = i;
+      bestd = d;
+    }
+  }
+  //dprintf("match: %d, %f", besti, bestd);
+  return bestd < 100.0f ? besti : -1;
+}
+

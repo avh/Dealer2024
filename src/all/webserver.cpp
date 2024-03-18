@@ -393,7 +393,7 @@ int HTTP::write(unsigned char *buf, int len)
         if (n < 0) {
           dprintf("write failed, http closed");
           state = HTTP_CLOSED;
-          return off;
+          return off > 0 ? off : n;
         }
         off += n;
       }

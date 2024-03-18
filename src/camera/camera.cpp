@@ -208,6 +208,8 @@ void Camera::init()
         if (suits.data != NULL) {
             suits.save("/suits.jpg");
         }
+        http.header(200, "Committed");
+        http.close();
     });
 
     WebServer::add("/controls", [](HTTP &http) {
@@ -320,8 +322,19 @@ bool Camera::captureCard(int learn_card)
     // REMIND: identify card OR learn
     if (learn_card == CARD_NULL) { 
         // REMIND: identify
-        dprintf("setting last_card to CARD_FAIL");
         last_card = CARD_FAIL;
+        if (cards.data != NULL) {
+            int c = card.match(cards);
+            int r = suit.match(suits);
+            dprintf("matches card=%d, suit=%d", c, r);
+            if (c >= 0 && r >= 0) {
+                last_card = c + r * 13;
+                dprintf("setting last_card to %d", last_card);
+            }
+        }
+        if (last_card == CARD_FAIL) {
+            dprintf("setting last_card to CARD_FAIL");
+        }
     } else {
         // REMIND: learn
         dprintf("setting last_card to learn_card=%d", learn_card);
