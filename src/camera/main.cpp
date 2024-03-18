@@ -3,13 +3,13 @@
 #include "util.h"
 #include "bus.h"
 #include "light.h"
-#include "sdcard.h"
+#include "storage.h"
 #include "image.h"
 #include "camera.h"
 #include "webserver.h"
 
 WebServer www;
-SDCard sdcard;
+Storage storage;
 LEDArray light("camera-light", 8, 200);
 Camera cam;
 extern Image cards;
@@ -23,7 +23,7 @@ class Idler : public IdleComponent {
     }
 
     virtual void idle(unsigned long now) {
-      dprintf("%5d: %s, wifi=%d, sd=%d, light=%d, frame=%d", i++, name, www.connected, sdcard.mounted, light.value, cam.frame_nr);
+      dprintf("%5d: %s, wifi=%d, store=%d, light=%d, frame=%d", i++, name, www.connected, storage.mounted, light.value, cam.frame_nr);
     }
 } idler;
 

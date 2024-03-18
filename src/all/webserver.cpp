@@ -1,6 +1,6 @@
 // (c)2024, Arthur van Hoff, Artfahrt Inc.
-#include <SD.h>
-
+#include <FS.h>
+#include <LittleFS.h>
 #include "webserver.h"
 
 static String wifi_credentials[] = {
@@ -177,7 +177,7 @@ void WebServer::file_put_handler(HTTP &http)
     return;
   }
   const char *path = http.path.c_str();
-  File file = SD.open(path, FILE_WRITE);
+  File file = LittleFS.open(path, FILE_WRITE);
   if (!file) {
     http.header(404, "File Not Write");
     http.close();
@@ -218,13 +218,13 @@ void WebServer::file_put_handler(HTTP &http)
 void WebServer::file_get_handler(HTTP &http)
 {
   const char *path = http.path.c_str();
-  File file = SD.open(path);
+  File file = LittleFS.open(path);
   if (!file) {
     http.header(404, "File Not Found");
     http.close();
     return;
   }
-  if (!SD.exists(path)) {
+  if (!LittleFS.exists(path)) {
     http.header(404, "File Not Found");
     http.close();
     return;

@@ -93,7 +93,7 @@ int Image::save(const char *fname)
     fb.format = PIXFORMAT_GRAYSCALE;
 
     unsigned long tm = millis();
-    File file = SD.open(fname, FILE_WRITE);
+    File file = LittleFS.open(fname, FILE_WRITE);
     if (!file) {
         dprintf("error: failed to open for write: %s", fname);
         return 1;
@@ -135,12 +135,12 @@ void Image::send(HTTP &http)
 
 bool Image::load(const char *fname) {
   unsigned long ms = millis();
-  File f = SD.open(fname, FILE_READ);
+  File f = LittleFS.open(fname, FILE_READ);
   if (!f) {
     dprintf("image: failed to open %s", fname);
     return false;
   }
-  JpegDec.decodeSdFile(f);
+  JpegDec.decodeFsFile(f);
   if (!JpegDec.width || !JpegDec.height) {
     dprintf("image: failed to decode %s", fname);
     return false;
