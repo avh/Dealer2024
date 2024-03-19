@@ -303,7 +303,7 @@ int HTTP::idle(WebServer *server, unsigned long now)
             String val = keyvalue.substring(eq > 0 ? eq+1 : keyvalue.length());
             query = query.substring(amp > 0 ? amp+1 : query.length());
             param[key] = val;
-            //dprintf("PARAM %s = %s", key.c_str(), val.c_str());
+            dprintf("PARAM '%s' = '%s'", key.c_str(), val.c_str());
           }
         }
       } else {

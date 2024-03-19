@@ -1,6 +1,7 @@
 // (c)2024, Arthur van Hoff, Artfahrt Inc.
 
 #include "util.h"
+#include "deal.h"
 #include "bus.h"
 #include "motor.h"
 #include "angle.h"
@@ -115,6 +116,11 @@ enum DealerState {
 
 extern class Dealer dealer;
 
+const char *deals[] = {
+  "2C3C4C5C6C7C9C1CJCQCAC8C", "2D3D4D5D6D7D9D1DJDQDAC8D", "2H3H4H5H6H7H9H1HJHQHA8H", "2S3S4S5S6S7S9S1SJSQSAS8S",
+  NULL,
+};
+
 class Dealer : public IdleComponent {
   public:
     DealerState state = DEALER_IDLE;
@@ -138,6 +144,20 @@ class Dealer : public IdleComponent {
         http.header(200, "Learning Started");
         http.close();
         dealer.state = DEALER_LEARNING;
+      });
+
+      www.add("/deal", [] (HTTP &http) {
+        String cards = http.param["deal"];
+        dprintf("GOT a DEAL: %s", cards.c_str()); 
+        Deal deal;
+        if (!deal.parse(cards.c_str())) {
+          http.header(200, "Cards not Parsed");
+          http.close();
+          return;
+        }
+        deal.debug();
+        http.header(200, "Dealing Started");
+        http.close();
       });
     }
 

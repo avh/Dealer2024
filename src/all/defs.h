@@ -52,9 +52,3 @@
 #define CARDSUIT(c,s)       ((c)*13 + (s))
 #define CARD(cs)            ((cs) % 13) 
 #define SUIT(cs)            ((cs) / 13)
-
-#define NCARDS              13
-#define NSUITS              4
-
-extern const char *short_name(int cs);
-extern const char *full_name(int cs);

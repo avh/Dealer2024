@@ -339,8 +339,8 @@ bool Camera::captureCard(int learn_card)
         dprintf("setting last_card to learn_card=%d", learn_card);
         last_card = learn_card;
         if (learn_card == 0) {
-            cardsuit.init(NCARDS * CARDSUIT_WIDTH, NSUITS * CARDSUIT_HEIGHT);
-            //overview.init(NCARDS * latest.width, NSUITS * latest.height);
+            cardsuit.init(SUITLEN * CARDSUIT_WIDTH, NSUITS * CARDSUIT_HEIGHT);
+            //overview.init(SUITLEN * latest.width, NSUITS * latest.height);
         }
     }
     if (cardsuit.data != NULL) {
@@ -386,10 +386,10 @@ void Camera::collate()
             for (int y = 0 ; y < SUIT_HEIGHT; y++) {
                 for (int x = 0 ; x < SUIT_WIDTH ; x++) {
                     unsigned long sum = 0;
-                    for (int i = 0 ; i < NCARDS ; i++) {
+                    for (int i = 0 ; i < SUITLEN ; i++) {
                         sum += *cardsuit.addr(x + i * CARDSUIT_WIDTH, y + s * CARDSUIT_HEIGHT + CARD_HEIGHT + 2);
                     }
-                    *suits.addr(x + s * SUIT_WIDTH, y) = sum / NCARDS;
+                    *suits.addr(x + s * SUIT_WIDTH, y) = sum / SUITLEN;
                 }
             }
         }

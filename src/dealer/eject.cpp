@@ -2,6 +2,7 @@
 
 #include "eject.h"
 #include "bus.h"
+#include "deal.h"
 
 extern BusMaster bus;
 
