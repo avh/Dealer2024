@@ -326,10 +326,9 @@ bool Camera::captureCard(int learn_card)
         if (cards.data != NULL) {
             int c = card.match(cards);
             int r = suit.match(suits);
-            dprintf("matches card=%d, suit=%d", c, r);
             if (c >= 0 && r >= 0) {
                 last_card = c + r * 13;
-                dprintf("setting last_card to %d", last_card);
+                dprintf("setting last_card to %d, %s", last_card, full_name(last_card));
             }
         }
         if (last_card == CARD_FAIL) {

@@ -6,15 +6,17 @@
 #include "angle.h"
 #include "sensor.h"
 #include "eject.h"
+#include "storage.h"
 #include "webserver.h"
 
 // Components
+Storage storage;
 BusMaster bus;
 Motor motor1("Motor1", M1_PIN1, M1_PIN2, 400, 5000);
-Motor motor2("Motor2", M2_PIN1, M2_PIN2, 400, 5000);
-Motor fan("Fan", FN_PIN1, FN_PIN2, 100, 100000, 2000);
-Motor rotator("Rotator", MR_PIN1, MR_PIN2, 400, 400);
-AngleSensor angle("Angle");
+Motor motor2("Motor2", M2_PIN2, M2_PIN2, 400, 5000);
+//Motor fan("Fan", FN_PIN1, FN_PIN2, 100, 100000, 2000);
+Motor rotator("Rotator", MR_PIN2, MR_PIN1, 400, 400);
+AngleSensor angle("Angle", rotator);
 IRSensor card("Card", CARD_PIN, HIGH);
 Ejector ejector("Ejector");
 WebServer www;
@@ -87,7 +89,14 @@ class Idler : IdleComponent {
     Idler() : IdleComponent("Idler", 10*1000) {
     }
     virtual void idle(unsigned long now) {
-      dprintf("%5d: dealer-idler, wifi=%d, but=%d, card=%d, ang=%d, m1=%d", cnt, 0, button.state, card.state, int(angle.value()), int(motor1.value()));
+      unsigned char res[6];
+      if (!bus.request(CAMERA_ADDR, (const unsigned char []){CMD_STATUS}, 1, res, sizeof(res))) {
+        dprintf("cam failed");
+      }
+
+      IPAddress ip = WiFi.localIP();
+
+      dprintf("%5d: dealer, detect=%d, card=%d/%d, ang=%d, wifi=%d.%d.%d.%d, cam=%d,%d, camwifi=%d.%d.%d.%d", cnt, card.state, ejector.current_card, ejector.loaded_card, int(angle.value()), ip[0], ip[1], ip[2], ip[3], res[0], res[1], res[2], res[3], res[4], res[5]);
       cnt += 1;
     }
 };

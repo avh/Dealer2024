@@ -80,7 +80,6 @@ class Motor : IdleComponent {
 
 extern Motor motor1;
 extern Motor motor2;
-extern Motor fan;
 extern Motor rotator;
 
 extern int eject();

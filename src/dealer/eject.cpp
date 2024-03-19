@@ -34,7 +34,7 @@ bool Ejector::identifyCard()
             if (learn_card < 52) {
                 current_card = learn_card;
             }
-            dprintf("identifyCard: card=%d", current_card);
+            dprintf("identifyCard: card=%d, %s", current_card, full_name(current_card));
             return true;
         }
         delay(1);
@@ -57,7 +57,6 @@ bool Ejector::load(bool learn)
     state = EJECT_LOADING;
     motor1.stop();
     motor2.stop();
-    fan.set_speed(100);
 
     captureCard();
     identifyCard();
@@ -71,7 +70,6 @@ bool Ejector::load(bool learn)
     motor2.set_speed(speed);
     card_tm = card.last_tm;
     eject_tm = millis();
-    fan_tm = millis();
     dprintf("loading");
     return true;
 }
@@ -85,17 +83,14 @@ bool Ejector::eject()
     state = EJECT_EJECTING;
     motor1.stop();
     motor2.stop();
-    fan.set_speed(100);
     if (current_card == CARD_NULL) {
         identifyCard();
     }
     motor1.set_speed(-speed/4);
     motor2.set_speed(speed);
-    fan.set_speed(100);
 
     card_tm = card.last_tm;
     eject_tm = millis();
-    fan_tm = millis();
     return true;
 }
 
@@ -154,12 +149,6 @@ void Ejector::idle(unsigned long now)
             motor1.stop();
             motor2.stop();
             dprintf("eject finish and done");
-        }
-        break;
-      default:
-        if (fan_tm && now > fan_tm + 1000) {
-            fan.stop();
-            fan_tm = 0;
         }
         break;
     }

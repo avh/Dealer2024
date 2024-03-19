@@ -2,8 +2,10 @@
 #include <Wire.h>
 #include "bus.h"
 #include "angle.h"
+#include "webserver.h"
 
 extern BusMaster bus;
+extern AngleSensor angle;
 
 void AngleSensor::init()
 {
@@ -14,6 +16,45 @@ void AngleSensor::init()
         dprintf("warning: angle sensor not found, error=%d", error);
         angle=360;
     }
+    WebServer::add("/turn", [](HTTP &http) {
+      ::angle.turnTo(atof(http.param["angle"].c_str()));
+      http.header(200, "Turning to Angle");
+      http.close();
+    });
+}
+
+void AngleSensor::idle(unsigned long now)
+{
+  if (active) {
+    angle = readAngle();
+    if (angle < 360) {
+      if (north < 0) {
+        north = angle;
+      }
+      float current = value();
+      if (target_angle >= 0) {
+        float d = adiff(target_angle, current);
+
+        if (fabs(d) < 1) {
+            rotator.stop();
+            interval = 1000;
+            dprintf("angle reached target=%f, current=%f", target_angle, current);
+            target_angle = -1;
+        } else {
+            int s = sign(d) * min(100, (int)fabs(d) + 20); 
+            dprintf("set speed=%d", s);
+            rotator.set_speed(s);
+        }
+      }
+    }
+  }
+}
+
+void AngleSensor::turnTo(float target)
+{
+    dprintf("angle: turnTo %f, current=%f", target, value());
+    target_angle = mod360(target);
+    interval = 1;
 }
 
 //
@@ -21,9 +62,6 @@ void AngleSensor::init()
 //
 float AngleSensor::readAngle()
 { 
-  if (true) {
-    return -1;
-  }
   unsigned char res[1];
 
   //7:0 - bits

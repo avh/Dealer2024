@@ -55,3 +55,6 @@
 
 #define NCARDS              13
 #define NSUITS              4
+
+extern const char *short_name(int cs);
+extern const char *full_name(int cs);

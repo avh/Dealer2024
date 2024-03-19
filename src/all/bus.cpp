@@ -74,6 +74,9 @@ bool BusMaster::check(uint8_t addr)
 
 bool BusMaster::request(uint8_t addr, const unsigned char *req, int reqlen, unsigned char *res, int reslen)
 {
+    if (res != NULL && reslen > 0) {
+        bzero(res, reslen);
+    }
     if (reqlen < 1) {
         dprintf("bus: error, request too short, reqlen=%d", reqlen);
         return false;

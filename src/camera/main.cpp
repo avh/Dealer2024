@@ -40,15 +40,16 @@ BusSlave bus(CAMERA_ADDR, [] (BusSlave &bus) {
       break;
     case CMD_STATUS:
       bus.reqlen = 0;
-      bus.reslen = 5;
+      bus.reslen = 6;
       bzero(bus.res, bus.reslen);
-      bus.res[0] = cards.data != NULL && suits.data != NULL;
+      bus.res[0] = cam.last_card;
+      bus.res[1] = cards.data != NULL && suits.data != NULL;
       if (WiFi.status() == WL_CONNECTED) {
         IPAddress ip = WiFi.localIP();
-        bus.res[1] = ip[0];
-        bus.res[2] = ip[1]; 
-        bus.res[3] = ip[2];
-        bus.res[4] = ip[3];
+        bus.res[2] = ip[0];
+        bus.res[3] = ip[1]; 
+        bus.res[4] = ip[2];
+        bus.res[5] = ip[3];
       }
       break;
     default:
