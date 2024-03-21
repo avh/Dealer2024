@@ -26,6 +26,9 @@ class AngleSensor : public IdleComponent {
     inline float value() {
       return north < 0 ? angle : mod360(angle - north);
     }
+    inline bool near(float a) {
+      return abs(adiff(a, value())) < 5;
+    }
 
     void turnTo(float target);
 

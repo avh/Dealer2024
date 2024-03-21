@@ -9,6 +9,7 @@ class Camera : IdleComponent {
   public:
     int frame_nr = 0;
     unsigned long frame_tm = 0;
+    int card_count = 0;
     volatile int last_card = CARD_NULL;
 
   public:

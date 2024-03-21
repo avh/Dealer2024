@@ -34,12 +34,23 @@ const char *suit2sym(int s)
 int ch2suit(char c)
 {
     const char *p = strchr("CDHS", c);
-    return p ? p - "CDHS" : CARD_NULL;
+    return p ? p - "CDHS" : -1;
 }
 
 char player2ch(int p)
 {
     return (p < 0 || p >= NPLAYERS) ? '?' : "NESW"[p];
+}
+
+const char *player2str(int p)
+{
+    switch (p) {
+    case 0: return "North";
+    case 1: return "East";
+    case 2: return "South";
+    case 3: return "West";
+    default: return "?";
+    }
 }
 
 int ch2player(char c)
@@ -116,75 +127,74 @@ bool Deal::parse(const char *str)
         }
     }
     
+    dealer = NORTH;
+
+    dprintf("DEAL: '%s'", str);
+
     const char *p = str;
-    dealer = ch2player(*p++);
+    if (p[0] != '\0' && p[1] == ':') {
+        dealer = ch2player(p[0]);
+        p += 2;
+    }
     if (dealer < 0) {
         dprintf("deal: invalid dealer '%str'", str);
         return false;
     }
-    if (*p++ != ':') {
-        dprintf("deal: colon expected '%str'", str);
-        return false;
-    }
-    for (int j = 0, player = dealer ; j < NPLAYERS ; j++, player = (player + 1) % 4) {
-        if (*p == 'R') {
-            break;
+    for (int player = dealer, card = 0, suit = 3 ; *p != '\0' ;) {
+        if (*p == '|' || *p == ',' || *p == ' ') {
+            p++;
+            player = (player + 1) % 4;
+            card = 0;
+            suit = 3;
+            continue;
         }
-        for (int i = 0, suit = 3 ; i < HANDSIZE && suit >= 0 ; i++) {
-            if (*p == '|' || *p == ',' || *p == ' ') {
-                p++;
-                break;
-            }
-            if (*p == 'R' || *p == '\0') {
-                break;
-            }
-            for (; *p == '.' && suit > 0 ; suit--, p++); 
-            int card =  ch2card(*p++);
-            if (card < 0 || card >= SUITLEN) {
-                dprintf("deal: invalid card '%str', card=%d, c='%c'", str, card, p[-1]);
+        if (*p == '.') {
+            p++;
+            if (suit == 0) {
+                dprintf("deal: too many suits for %s in '%s' ", player2str(player), str);
                 return false;
             }
-            int cs = CARDSUIT(suit, card);
-            if (owner[cs] != CARD_NULL) {
-                dprintf("deal: duplicate card '%str', card=%d, c='%c'", str, card, p[-1]);
-                return false;
-            }
-            dprintf("deal: player=%d, i=%d, suit=%d, card=%d, cs=%d", player, i, suit, card, cs);
-            cards[player][i] = cs;
-            owner[cs] = player;
+            suit--;
+            continue;
         }
-        if (*p == 'R' || *p == '\0') {
-            break;
+        if (ch2suit(*p) >= 0) {
+            suit = ch2suit(*p++);
+            continue;
         }
-    }
-    // RANDOMIZE
-    if (*p == 'R') {
-        p++;
-        for (int p = 0 ; p < NPLAYERS ; p++) {
-            for (int c = 0 ; c < HANDSIZE ; c++) {
-                if (cards[p][c] == CARD_NULL) {
-                    int off = esp_random() % DECKLEN;
-                    for (int i = 0 ; i < DECKLEN ; i++) {
-                        if (owner[(off + i) % DECKLEN] == CARD_NULL) {
-                            cards[p][c] = (off + i) % DECKLEN;
-                            owner[(off + i) % DECKLEN] = p;
-                            break;
-                        }
-                    }
-                }
-            }
+        int c =  ch2card(*p++);
+        if (c < 0 || c >= SUITLEN) {
+            dprintf("deal: invalid card '%c' for %s in '%s'", p[-1], player2str(player), str);
+            return false;
         }
+        int cs = CARDSUIT(suit, card);
+        if (owner[cs] != CARD_NULL) {
+            dprintf("deal: duplicate card %s for %s in '%s'", short_name(cs), player2str(player), str);
+            return false;
+        }
+        //dprintf("deal: player=%d, i=%d, suit=%d, card=%d, cs=%d", player, i, suit, card, cs);
+        if (card > HANDSIZE) {
+            dprintf("deal: too many cards for %s in '%s'", player2str(player), str);
+            return false;
+        }
+        //dprintf("deal: assign %s to %s", short_name(cs), player2str(player));
+        cards[player][card++] = cs;
+        owner[cs] = player;
     }
-    if (*p != '\0') {
-        dprintf("deal: extra characters '%str'", str);
-        return false;
-    }
-    // check assignments
+
+    // radomize remaining cards.
     for (int p = 0 ; p < NPLAYERS ; p++) {
         for (int c = 0 ; c < HANDSIZE ; c++) {
             if (cards[p][c] == CARD_NULL) {
-                dprintf("deal: missing card for player %d", p);
-                return false;
+                int off = esp_random() % DECKLEN;
+                for (int i = 0 ; i < DECKLEN ; i++) {
+                    int cs = (off + i) % DECKLEN;
+                    if (owner[cs] == CARD_NULL) {
+                        //dprintf("deal: random assign %s to %s", short_name(cs), player2str(p));
+                        cards[p][c] = cs;
+                        owner[cs] = p;
+                        break;
+                    }
+                }
             }
         }
     }

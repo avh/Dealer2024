@@ -3,7 +3,7 @@
 #pragma once
 #include "util.h"
 
-#define NPLAYERS             4    
+#define NPLAYERS            4    
 #define DECKLEN             52
 #define NSUITS              4
 #define SUITLEN             (DECKLEN / NSUITS)
@@ -29,5 +29,6 @@ extern char suit2ch(int s);
 extern const char *suit2sym(int s);
 extern int ch2suit(char c);
 extern char player2ch(int p);
+extern const char *player2str(int p);
 extern int ch2player(char c);
 extern int card2hcp(int c);

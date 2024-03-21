@@ -1,5 +1,6 @@
 // (c)2024, Arthur van Hoff, Artfahrt Inc.
 
+#include "deal.h"
 #include "camera.h"
 #include "image.h"
 #include "webserver.h"
@@ -32,6 +33,11 @@
 
 //#define convert565(v) (r565(v) + b565(v) + (g565(v)<<1))
 #define convert565(v) ((b565(v) + g565(v))<<1)
+
+#define WINDOW_X                 150
+#define WINDOW_Y                 140
+#define WINDOW_WIDTH             300
+#define WINDOW_HEIGHT            140
 
 Image latest;
 Image tmp;
@@ -295,13 +301,13 @@ camera_fb_t *Camera::capture()
     
     frame_tm = millis();
     frame_nr += 1;
-    dprintf("camera: capture took %dms, frame=%d", int(millis() - tm), frame_nr);
+    //dprintf("camera: capture took %dms, frame=%d", int(millis() - tm), frame_nr);
     return fb;
 }
 
 bool Camera::captureCard(int learn_card)
 {
-    dprintf("capturing card");
+    //dprintf("capturing card, learn_card=%d", learn_card);
     last_card = CARD_NULL;
     camera_fb_t *fb = cam.capture();
     if (fb == NULL) {
@@ -309,27 +315,29 @@ bool Camera::captureCard(int learn_card)
     }
 
     // pick useful region
-    int x = 150;
-    int y = 140;
-    int w = 300;
-    int h = 140;
+    int x = WINDOW_X;
+    int y = WINDOW_Y;
+    int w = WINDOW_WIDTH;
+    int h = WINDOW_HEIGHT;
     unpack_565((unsigned short *)fb->buf + x + y * fb->width, fb->width, w, h, latest);
     esp_camera_fb_return(fb);
 
     // located card and suit
     latest.locate(tmp, card, suit);
 
-    // REMIND: identify card OR learn
+    // identify card OR learn
     if (learn_card == CARD_NULL) { 
-        // REMIND: identify
-        last_card = CARD_FAIL;
         if (cards.data != NULL) {
             int c = card.match(cards);
             int r = suit.match(suits);
             if (c >= 0 && r >= 0) {
                 last_card = c + r * 13;
-                dprintf("setting last_card to %d, %s", last_card, full_name(last_card));
+                //dprintf("setting last_card to %d, %s", last_card, full_name(last_card));
+            } else {
+                last_card = CARD_FAIL;
             }
+        } else {
+            last_card = CARD_FAIL;
         }
         if (last_card == CARD_FAIL) {
             dprintf("setting last_card to CARD_FAIL");
@@ -340,9 +348,9 @@ bool Camera::captureCard(int learn_card)
         last_card = learn_card;
         if (learn_card == 0) {
             cardsuit.init(SUITLEN * CARDSUIT_WIDTH, NSUITS * CARDSUIT_HEIGHT);
-            //overview.init(SUITLEN * latest.width, NSUITS * latest.height);
         }
     }
+    dprintf("capture: identify frame %d as card %s", frame_nr, full_name(last_card));
     if (cardsuit.data != NULL) {
         int c = CARD(last_card);
         int r = SUIT(last_card);
@@ -350,17 +358,23 @@ bool Camera::captureCard(int learn_card)
         cardsuit.copy(c * CARDSUIT_WIDTH, r * CARDSUIT_HEIGHT + CARD_HEIGHT + 2, suit);
     }
     if (overview.data != NULL) {
-        int c = CARD(last_card);
-        int r = SUIT(last_card);
+        int cs = card_count % DECKLEN;
+        int c = CARD(cs);
+        int r = SUIT(cs);
         overview.copy(c * latest.width, r * latest.height, latest);
     }
+    card_count += 1;
     return true;
 }
 
 void Camera::clearCard()
 {
-    dprintf("clearing last_card");
+    dprintf("clearing cards");
     last_card = CARD_NULL;
+    card_count = 0;
+    if (true) {
+        overview.init(SUITLEN * latest.width, NSUITS * latest.height);
+    }
 }
 
 void Camera::collate()
@@ -368,7 +382,7 @@ void Camera::collate()
     dprintf("collate");
     if (cardsuit.data != NULL) {
         // cards
-        cards.init(NCARDS * CARD_WIDTH, CARD_HEIGHT);
+        cards.init(HANDSIZE * CARD_WIDTH, CARD_HEIGHT);
         for (int y = 0 ; y < cards.height; y++) {
             for (int x = 0 ; x < cards.width ; x++) {
                 unsigned long sum = 0;

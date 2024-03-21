@@ -38,11 +38,11 @@ void AngleSensor::idle(unsigned long now)
         if (fabs(d) < 1) {
             rotator.stop();
             interval = 1000;
-            dprintf("angle reached target=%f, current=%f", target_angle, current);
+            //dprintf("angle: reached target=%f, current=%f", target_angle, current);
             target_angle = -1;
         } else {
-            int s = sign(d) * min(100, (int)fabs(d) + 20); 
-            dprintf("set speed=%d", s);
+            int s = sign(d) * min(100, (int)fabs(d) + 40); 
+            //dprintf("angle: set speed=%d", s);
             rotator.set_speed(s);
         }
       }
@@ -52,7 +52,7 @@ void AngleSensor::idle(unsigned long now)
 
 void AngleSensor::turnTo(float target)
 {
-    dprintf("angle: turnTo %f, current=%f", target, value());
+    //dprintf("angle: turnTo %f, current=%f", target, value());
     target_angle = mod360(target);
     interval = 1;
 }

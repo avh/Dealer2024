@@ -21,7 +21,6 @@ public:
     int speed = 800;
     unsigned long eject_tm;
     unsigned long card_tm;
-    unsigned long fan_tm;
     bool learning = false;
     int learn_card = CARD_NULL;
     int current_card = CARD_NULL;
@@ -31,7 +30,7 @@ public:
     Ejector(const char *name) : IdleComponent(name) {}
 
     bool captureCard();
-    bool identifyCard();
+    bool identifyCard(bool blocking = true, int timeout = 1000);
 
     bool load(bool learn = false);
     bool eject();

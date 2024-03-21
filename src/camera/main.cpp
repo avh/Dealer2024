@@ -27,42 +27,40 @@ class Idler : public IdleComponent {
     }
 } idler;
 
-BusSlave bus(CAMERA_ADDR, [] (BusSlave &bus) {
+BusSlave bus(CAMERA_ADDR, [] (BusSlave &bus, BusSlave::Buffer &req, BusSlave::Buffer &res) {
   // interrupt handler, NO blocking
-  switch (bus.req[0]) {
+  switch (req[0]) {
     case CMD_CAPTURE:
       cam.last_card = CARD_NULL;
       break;
     case CMD_IDENTIFY:
-      bus.reqlen = 0;
-      bus.res[0] = cam.last_card;
-      bus.reslen = 1;
+      res.resize(1);
+      res[0] = cam.last_card;
       break;
     case CMD_STATUS:
-      bus.reqlen = 0;
-      bus.reslen = 6;
-      bzero(bus.res, bus.reslen);
-      bus.res[0] = cam.last_card;
-      bus.res[1] = cards.data != NULL && suits.data != NULL;
+      res.resize(6);
+      bzero(res.data(), res.size());
+      res[0] = cam.last_card;
+     res[1] = cards.data != NULL && suits.data != NULL;
       if (WiFi.status() == WL_CONNECTED) {
         IPAddress ip = WiFi.localIP();
-        bus.res[2] = ip[0];
-        bus.res[3] = ip[1]; 
-        bus.res[4] = ip[2];
-        bus.res[5] = ip[3];
+        res[2] = ip[0];
+        res[3] = ip[1]; 
+        res[4] = ip[2];
+        res[5] = ip[3];
       }
       break;
     default:
       break;
   }
-},[] (BusSlave &bus) {
+},[] (BusSlave &bus, BusSlave::Buffer &req) {
   // command handler, blocking is allowed, but no responses
-  switch (bus.req[0]) {
+  switch (req[0]) {
     case CMD_CLEAR:
       cam.clearCard();
       break;
     case CMD_CAPTURE:
-      cam.captureCard(bus.req[1]);
+      cam.captureCard(req[1]);
       break;
     case CMD_COLLATE:
       cam.collate();
