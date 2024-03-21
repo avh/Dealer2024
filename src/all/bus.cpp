@@ -10,22 +10,23 @@ static BusSlave *client = NULL;
 
 static void handleReceiveCommand(int len) 
 {
-    client->reqlen = len;
-    Wire.readBytes(client->req, client->reqlen);
-    client->int_handler(*client);
-    if (client->reqlen > 0) {
+    BusSlave::Buffer cmd(len);
+    Wire.readBytes(cmd.data(), len);
+    client->int_handler(*client, cmd, client->response);
+    if (client->response.size() == 0) {    
+        client->pending.push_back(cmd);
         client->interval = 0;
     }
 }
 
 static void handleRequestData() 
 {
-    if (client->reslen > 0) {
-        int n = Wire.write(client->res, client->reslen);
-        if (n != client->reslen) {
-            dprintf("bus: hdlreqd FAILED 0x%02x len=%d, wrote %d", client->res[0], client->reslen, n);
+    if (client->response.size() > 0) {
+        int n = Wire.write(client->response.data(), client->response.size());
+        if (n != client->response.size()) {
+            dprintf("bus: hdlreqd FAILED 0x%02x len=%d, wrote %d", client->response[0], client->response.size(), n);
         }
-        client->reslen = 0;
+        client->response.resize(0);
     } else {
         dprintf("bus: error, missing request data");
     }
@@ -43,15 +44,14 @@ void BusSlave::init()
 
 void BusSlave::idle(unsigned long now)
 {
-    if (cmd_handler != NULL && reqlen > 0) {
-        cmd_handler(*this);
-        if (reslen > 0) {
-            dprintf("bus: error response after command not allowed");
-            reslen = 0;
-        }
-        interval = 1000;
-        reqlen = 0;
-    }
+    if (pending.size() > 0) {
+        noInterrupts();
+        Buffer cmd = pending[0];
+        pending.erase(pending.begin());
+        interval = pending.size() == 0 ? 1000 : 0;
+        interrupts();
+        cmd_handler(*this, cmd);
+   }
 }
 
 //
@@ -111,6 +111,7 @@ bool BusMaster::request(uint8_t addr, const unsigned char *req, int reqlen, unsi
             last_error_addr = addr;
             return false;
         }
+        //dprintf("reading %d bytes", reslen);
         Wire.readBytes(res, reslen);
         Wire.flush();
     }
