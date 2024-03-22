@@ -5,21 +5,22 @@
 #include "util.h"
 #include "light.h"
 
-class Camera : IdleComponent {
+class Camera : InitComponent {
   public:
     int frame_nr = 0;
     unsigned long frame_tm = 0;
     int card_count = 0;
     volatile int last_card = CARD_NULL;
+    int prev_card = CARD_NULL;
+    bool learning = false;
 
   public:
-    Camera() : IdleComponent("capture", 1000) {}
+    Camera() : InitComponent("capture") {}
     virtual void init();
-    virtual void idle(unsigned long now);
 
     camera_fb_t *capture();
-    bool captureCard(int learn_card = CARD_NULL);
-    void clearCard();
+    bool captureCard();
+    void clearCard(bool learn = false);
     void collate();
 };
 

@@ -139,6 +139,7 @@ class Dealer : public IdleComponent {
           http.close();
           return;
         }
+        // load with learn=true
         if (!ejector.load(true)) {
           http.header(404, "Load failed");
           http.close();
@@ -248,37 +249,34 @@ class Dealer : public IdleComponent {
     void deal_summary()
     {
       dprintf("dealer: dealt %d cards", deal_count);
-      if (deal_count < 10) {
-        for (int i = 0 ; i < deal_count ; i++) {
-          dprintf("dealer: card %d, %s%s", i, full_name(card_hist[i]), card_count[card_hist[i]] > 1 ? " (DUPLICATE)" : "");
+      for (int i = 0 ; i < deal_count ; i++) {
+        dprintf("dealer: card %d, %s%s", i, full_name(card_hist[i]), card_count[card_hist[i]] > 1 ? " (DUPLICATE)" : "");
+      }
+      int order_count = 0;
+      for (int i = 0 ; i < DECKLEN-1 ; i++) {
+        if (card_hist[i]+1 == card_hist[i+1]) {
+          order_count++;
         }
+      }
+      int missing_count = 0;
+      int duplicate_count = 0;
+      for (int i = 0 ; i < DECKLEN ; i++) {
+        if (card_count[i] == 0) {
+          if (deal_count > 40) {
+            dprintf("dealer: missing card %d, %s", i, full_name(i));
+          }
+          missing_count++;
+        } else if (card_count[i] > 1) {
+          dprintf("dealer: duplicate card %d, %s", i, full_name(i));
+          duplicate_count++;
+        }
+      }
+      if (missing_count == 0 && duplicate_count == 0 && order_count == DECKLEN-1) {
+        dprintf("dealer: all cards present, sorted, and accounted for. Nice!");
+      } else if (missing_count == 0 && duplicate_count == 0) {
+        dprintf("dealer: all cards present and accounted for, not in order though");
       } else {
-        int order_count = 0;
-        for (int i = 0 ; i < DECKLEN-1 ; i++) {
-          if (card_hist[i]+1 == card_hist[i+1]) {
-            order_count++;
-          }
-        }
-        int missing_count = 0;
-        int duplicate_count = 0;
-        for (int i = 0 ; i < DECKLEN ; i++) {
-          if (card_count[i] == 0) {
-            if (deal_count > 40) {
-              dprintf("dealer: missing card %d, %s", i, full_name(i));
-            }
-            missing_count++;
-          } else if (card_count[i] > 1) {
-            dprintf("dealer: duplicate card %d, %s", i, full_name(i));
-            duplicate_count++;
-          }
-        }
-        if (missing_count == 0 && duplicate_count == 0 && order_count == DECKLEN-1) {
-          dprintf("dealer: all cards present, sorted, and accounted for. Nice!");
-        } else if (missing_count == 0 && duplicate_count == 0) {
-          dprintf("dealer: all cards present and accounted for, not in order though");
-        } else {
-          dprintf("dealer: missing %d cards, %d duplicates", missing_count, duplicate_count);
-        }
+        dprintf("dealer: missing %d cards, %d duplicates", missing_count, duplicate_count);
       }
     }
 
@@ -291,6 +289,7 @@ class Dealer : public IdleComponent {
         case DEALER_LEARNING:
         case DEALER_VERIFYING:
           if (now > last_tm + 10000) {
+            dprintf("STATE=%d, %d/%d", ejector.state, ejector.current_card, ejector.loaded_card);
             deal_failed("timeout");
             return;
           }
@@ -304,7 +303,7 @@ class Dealer : public IdleComponent {
                   deal_done();
                   break;
                 case CARD_FAIL:
-                  deal_failed("eject failed");
+                  deal_failed("eject card failed");
                   break;
                 default:
                   if (ejector.loaded_card >= 0 && ejector.loaded_card < DECKLEN) {
@@ -338,118 +337,6 @@ class Dealer : public IdleComponent {
           
       }
     }
-
-#if 0
-    virtual void idle(unsigned long now) 
-    {
-      switch (state) {
-        case DEALER_IDLE:
-          break;
-        case DEALER_DEALING:
-          if (now > last_tm + 10000) {
-            dprintf("dealer: timeout, pos=%d, angle=%d, near=%d", deal_position, angle.value(), angle.near(deal_position));
-            state = DEALER_IDLE;
-            break;
-          }
-          switch (ejector.loaded_card) {
-            case CARD_NULL:
-              break;
-            case CARD_EMPTY:
-            case CARD_FAIL:
-              state = DEALER_IDLE;
-              dprintf("dealer: done: %d, card=%d", deal_count, ejector.loaded_card);
-              break;
-            default:
-              if (deal_position < 0) {
-                  deal_position = owner_position(ejector.loaded_card);
-                  angle.turnTo(deal_position);
-                  dealer.last_tm = now;
-              }
-              if (dealt[ejector.loaded_card]) {
-                dprintf("dealer: duplicate card %d, %s", ejector.loaded_card, full_name(ejector.loaded_card));
-                dealt[ejector.loaded_card] = false;
-              }
-              // eject card when we are at the right angle
-              if (angle.near(deal_position)) {
-                dprintf("dealer: ejecting card %d, %s", ejector.loaded_card, full_name(ejector.loaded_card));
-                dealt[ejector.loaded_card] = true;
-                deal_position = -1;
-                deal_count += 1;
-                if (!ejector.eject()) {
-                  dprintf("dealer: eject failed");
-                  state = DEALER_IDLE;
-                  break;
-                }
-                dealer.last_tm = now;
-              }
-          }
-          break;
-        case DEALER_LEARNING:
-          switch (ejector.state) {
-            case EJECT_IDLE:
-            case EJECT_OK:
-              if (ejector.loaded_card != CARD_EMPTY) {
-                dprintf("verify n=%d, card=%d, %s", deal_count+1, ejector.loaded_card, long_name(ejector.loaded_card));
-                deal_count++;
-                ejector.eject();
-              } else if (ejector.loaded_card == CARD_EMPTY) {
-                if (ejector.learn_card == 52) {
-                  dprintf("learning succeeded");
-                } else {
-                  dprintf("learning failed, deck is ncards=%d", ejector.learn_card-1);
-                }
-                if (ejector.learn_card > 0) {
-                  bus.request(CAMERA_ADDR, (const unsigned char []){CMD_COLLATE}, 1, NULL, 0);
-                }
-                state = DEALER_IDLE;
-                ejector.learning = false;
-              }
-              break;
-            case EJECT_FAILED:
-              dprintf("learning failed, state=%d",  ejector.state);
-              state = DEALER_IDLE;
-              ejector.learning = false;
-              if (ejector.learn_card > 0) {
-                  bus.request(CAMERA_ADDR, (const unsigned char []){CMD_COLLATE}, 1, NULL, 0);
-              }
-              break;
-            default:
-              break;
-          }
-          break;
-        case DEALER_VERIFYING:
-          switch (ejector.state) {
-            case EJECT_IDLE:
-            case EJECT_OK:
-              if (ejector.loaded_card != CARD_EMPTY) {
-                dprintf("verifying learn=%d current=%d loaded=%d", ejector.learn_card, ejector.current_card, ejector.loaded_card);
-                if dealt[ejector.loaded_card]) {
-                }
-
-                 dealt[ejector.loaded_card] = true;
-               ejector.eject();
-              } else if (ejector.loaded_card == CARD_EMPTY) {
-                if (ejector.learn_card == 52) {
-                  dprintf("learning succeeded");
-                } else {
-                  dprintf("learning failed, deck is ncards=%d", ejector.learn_card-1);
-                }
-                state = DEALER_IDLE;
-                ejector.learning = false;
-              }
-              break;
-            case EJECT_FAILED:
-              dprintf("verify failed, state=%d",  ejector.state);
-              state = DEALER_IDLE;
-              break;
-            default:
-              break;
-          }
-          break;
-
-      }
-    }
-#endif
 };
 
 Dealer dealer;

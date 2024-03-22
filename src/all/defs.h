@@ -48,6 +48,7 @@
 #define CARD_NULL           255      // no card detected yet
 #define CARD_EMPTY          254      // no card detected in hopper
 #define CARD_FAIL           253      // card detection failed    
+#define CARD_USED           252      // card has been used  
 
 #define CARDSUIT(c,s)       ((c)*13 + (s))
 #define CARD(cs)            ((cs) % 13) 

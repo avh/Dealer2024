@@ -8,97 +8,101 @@ extern BusMaster bus;
 
 bool Ejector::captureCard()
 {
-    unsigned char card = CARD_NULL;
-    if (learning) {
-        if (learn_card < 52) {
-            card = learn_card++;
-        } else {
-            return true;
-        }
-    }
     delay(200);
     //dprintf("captureCard learning=%d", learning);
-    unsigned char buf[] = {CMD_CAPTURE, card};
-    int result = bus.request(CAMERA_ADDR, buf, sizeof(buf));
-    //dprintf("captureCard learning=%d, result=%ld", learning, result);
-    return result;
+    current_card = CARD_NULL;
+    unsigned char buf[] = {CMD_CAPTURE};
+    return bus.request(CAMERA_ADDR, buf, sizeof(buf));
 }
 
-bool Ejector::identifyCard(bool blocking, int timeout)
+bool Ejector::identifyCard(int timeout)
 {
-    if (current_card != CARD_NULL) {
-        dprintf("identifyCard=%d, already identified", current_card);
+    switch (current_card) {
+      case CARD_FAIL:
+      case CARD_USED:
+      case CARD_EMPTY:
+        return true;
+      case CARD_NULL:
+        for (unsigned long start_tm = millis() ;;) {
+            unsigned char buf[1] = {CARD_FAIL};
+            if (!bus.request(CAMERA_ADDR, (const unsigned char []){CMD_IDENTIFY}, 1, buf, 1)) {
+                current_card = CARD_FAIL;
+                dprintf("identifyCard: failed");
+                return false;
+            }
+            current_card = buf[0];
+            if (current_card != CARD_NULL) {
+                switch(current_card) {
+                case CARD_FAIL:
+                case CARD_EMPTY:
+                    break;
+                default:
+                    if (current_card < 0 || current_card >= DECKLEN) {
+                        dprintf("identifyCard: got invalid card %d", current_card);
+                        current_card = CARD_FAIL;
+                    }
+                    break;
+                }
+                dprintf("identifyCard: card=%d, %s", current_card, full_name(current_card));
+                return true;
+            }
+            if (timeout == 0) {
+                return false;
+            }
+            if (millis() > start_tm + timeout) {
+                dprintf("identifyCard: timeout=%d, CARD_FAIL", timeout);
+                break;
+            }
+            delay(1);
+            //dprintf("ident: got current_card=%d", current_card);
+        }
+        current_card = CARD_FAIL;
+        dprintf("identifyCard: timeout, CARD_FAIL");
+        return false;
+      default:
         return true;
     }
-    for (unsigned long start_tm = millis() ; millis() < start_tm + timeout ;) {
-        unsigned char buf[1] = {CARD_FAIL};
-        if (!bus.request(CAMERA_ADDR, (const unsigned char []){CMD_IDENTIFY}, 1, buf, 1)) {
-            current_card = CARD_FAIL;
-            dprintf("identifyCard: failed");
-            return false;
-        }
-        current_card = buf[0];
-        if (current_card != CARD_NULL) {
-            if (learn_card < 52) {
-                current_card = learn_card;
-            }
-            switch(current_card) {
-              case CARD_FAIL:
-              case CARD_EMPTY:
-                break;
-              default:
-                if (current_card < 0 || current_card >= DECKLEN) {
-                    dprintf("identifyCard: got invalid card %d", current_card);
-                    current_card = CARD_FAIL;
-                }
-                break;
-            }
-            //dprintf("identifyCard: card=%d, %s", current_card, full_name(current_card));
-            return true;
-        }
-        if (!blocking) {
-            return false;
-        }
-        delay(1);
-        //dprintf("ident: got current_card=%d", current_card);
-    }
-    current_card = CARD_FAIL;
-    dprintf("identifyCard: timeout, CARD_FAIL");
-    return false;
 }
 
 
 bool Ejector::load(bool learn)
 {
-    dprintf(learn ? "load and learn" : "load");
-    this->learning = learn;
-    this->learn_card = learn ? 0 : CARD_NULL;
     if (card.state) {
-        return true;
+        dprintf("load: failed, card already loaded");
+        return false;
     }
 
     // reset card state on camera
-    bus.request(CAMERA_ADDR, (const unsigned char []){CMD_CLEAR}, 1, NULL, 0);
+    unsigned char buf[] = {CMD_CLEAR, (unsigned char)(learn ? 1 : 0) };
+    if (!bus.request(CAMERA_ADDR, buf, sizeof(buf), NULL, 0)) {
+        dprintf("load: failed to clear cards");
+        return false;
+    }
+    if (!captureCard()) {
+        dprintf("load: failed to capture card");
+        return false;
+    }
+
+    dprintf(learn ? "load and learn" : "load");
+    loaded_card = CARD_NULL;
+    if (!identifyCard()) {
+        dprintf("load: failed to identify card");
+        return false;
+    }
+    if (current_card == CARD_EMPTY) {
+        dprintf("load: hopper empty");
+        return false;
+    }
 
     state = EJECT_LOADING;
-    current_card = CARD_NULL;
-    loaded_card = CARD_NULL;
+    learning = learn;
     motor1.stop();
     motor2.stop();
-
-    captureCard();
-    identifyCard();
-
-    if (current_card == CARD_EMPTY) {
-        dprintf("hopper empty");
-        return true;
-    }
 
     motor1.set_speed(speed);
     motor2.set_speed(speed);
     card_tm = card.last_tm;
     eject_tm = millis();
-    dprintf("loading");
     return true;
 }
 
@@ -108,15 +112,19 @@ bool Ejector::eject()
         dprintf("eject: failed no card loaded");
         return false;
     }
+
+    dprintf(learning ? "eject and learn" : "eject");
+    if (!identifyCard()) {
+        dprintf("eject: failed to identify card");
+        return false;
+    }
+
     state = EJECT_EJECTING;
+    loaded_card = CARD_NULL;
     motor1.stop();
     motor2.stop();
-    if (current_card == CARD_NULL) {
-        identifyCard();
-    }
     motor1.set_speed(-speed/4);
     motor2.set_speed(speed);
-    loaded_card = CARD_NULL;
 
     card_tm = card.last_tm;
     eject_tm = millis();
@@ -150,7 +158,7 @@ void Ejector::idle(unsigned long now)
             state = EJECT_RETRACTING;
             //dprintf("load done, retracting");
             loaded_card = current_card;
-            current_card = CARD_NULL;
+            current_card = CARD_USED;
         //} else if (card.state && card.last_tm < millis() - 40 && motor1.goal_speed > 0) {
         //    motor1.reverse();
         //    dprintf("loading, reversing");
@@ -163,27 +171,25 @@ void Ejector::idle(unsigned long now)
         }
         break;
       case EJECT_RETRACTING:
-        if (now > eject_tm + 140) {
+        if (now > eject_tm + 100) {
             eject_tm = now;
             motor1.stop();
             motor2.stop();
             state = EJECT_FINISH;
-            captureCard();
             //dprintf("reversing done");
         }
         break;
       case EJECT_FINISH:
-        if (now > eject_tm + 100) {
+        if (now > eject_tm + 140) {
             state = EJECT_OK;
             motor1.stop();
             motor2.stop();
+            captureCard();
             //dprintf("eject finish and done, current=%d, loaded=%d", current_card, loaded_card);
         }
         // fall through
       default:
-        if (current_card == CARD_NULL) {
-            identifyCard(false);
-        }
+        identifyCard(0);
         break;
     }
 }

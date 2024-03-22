@@ -49,44 +49,17 @@ Image cards;
 Image suits;
 extern WebServer www;
 
-float *vignet = NULL;
-float vignet_f = 0;
-float vignet_s = 0.95;
-float vignet_a = 20.0;
-int vignet_b = 128;
-
 // unpack 565, convert from little endian to grayscale, rotate, scale down
 static void unpack_565(unsigned short *src, int src_stride, int src_width, int src_height, Image &dst)
 {
     dst.init(src_height/2, src_width/2);
     
-    // calculate vignet
-    if (vignet == NULL && vignet_f > 0) {
-        vignet = new float[dst.width * dst.height];
-        for (int r = 0 ; r < dst.height ; r++) {
-            float dr = r - dst.height/2;
-            for (int c = 0 ; c < dst.width ; c++) {
-                float dc = c - dst.width/2;
-                float d = sqrt(dr*dr + dc*dc);
-                float v = vignet_s * vignet_f/sqrt(d*d + vignet_f*vignet_f);
-                vignet[r * dst.width + c] = 1-v;
-                if (r == 60) {
-                    dprintf("vignet %3d,%3d = %.4f", r, c, 1-v);
-                }
-            }
-        }
-    }
-
     pixel *dstp = dst.data + dst.width * (dst.height - 1);
     for (int c = 0 ; c < dst.width ; c++, src += 2*src_stride, dstp += 1) {
         unsigned short *sp = src;
         pixel *dp = dstp;
         for (int r = 0 ; r < dst.height ; r++, sp += 2, dp -= dst.stride) {
             int v = convert565(sp[0]) + convert565(sp[1]) + convert565(sp[src_stride+0]) + convert565(sp[src_stride+1]);
-            if (vignet != NULL) {
-                v = ((v-(128<<4)) * vignet[r * dst.width + c]) * vignet_a + (vignet_b<<4);
-                v = v < 0 ? 0 : v > 255<<4 ? 255<<4 : v;
-            }
             *dp = (v>>4) & 0xFF;
         }
     }
@@ -124,7 +97,7 @@ void Camera::init()
     config.grab_mode = CAMERA_GRAB_LATEST;
     config.fb_location = CAMERA_FB_IN_PSRAM;
     config.jpeg_quality = 0;
-    config.fb_count = 2;
+    config.fb_count = 3;
 
     // camera init
     esp_err_t err = esp_camera_init(&config);
@@ -252,30 +225,28 @@ void Camera::init()
                 http.printf("set aec2 to %d\n", atoi(value.c_str()));
             } else if (key == "aec") {
                 s->set_aec_value(s, atoi(value.c_str()));
-                http.printf("set aec_value to %d\n", atof(value.c_str()));
-            } else if (key == "vignet_f") {
-                vignet_f = atof(value.c_str());
-                http.printf("set vignet_f to %f\n", atof(value.c_str()));
-            } else if (key == "vignet_s") {
-                vignet_s = atof(value.c_str());
-                http.printf("set vignet_s to %f\n", atof(value.c_str()));
-            } else if (key == "vignet_a") {
-                vignet_a = atof(value.c_str());
-                http.printf("set vignet_a to %f\n", atof(value.c_str()));
-            } else if (key == "vignet_b") {
-                vignet_b = atoi(value.c_str());
-                http.printf("set vignet_b to %d\n", atoi(value.c_str()));
+                http.printf("set aec_value to %d\n", atoi(value.c_str()));
             }
-            free(vignet);
-            vignet = NULL;
         } 
         http.close();
     });
 }
 
-void Camera::idle(unsigned long now)
+void Camera::clearCard(bool learn)
 {
-    // REMIND: later
+    dprintf(learning ? "clearing cards for learning" : "clearing cards");
+    last_card = CARD_NULL;
+    prev_card = CARD_NULL;
+    card_count = 0;
+    this->learning = learn;
+
+    if (learning) {
+        cardsuit.init(SUITLEN * CARDSUIT_WIDTH, NSUITS * CARDSUIT_HEIGHT);
+    }
+
+    if (true) {
+        overview.init(SUITLEN * (WINDOW_HEIGHT/2), NSUITS * (WINDOW_WIDTH/2));
+    }
 }
 
 camera_fb_t *Camera::capture()
@@ -285,11 +256,7 @@ camera_fb_t *Camera::capture()
     light.on(100, 1000);
 
     // wait for the light to come on
-    while (millis() < light.on_tm + 250) {
-        delay(1);
-    }
-    // wait for the next frame
-    while (millis() < frame_tm + 50) {
+    while (millis() < light.on_tm + 550) {
         delay(1);
     }
 
@@ -305,75 +272,67 @@ camera_fb_t *Camera::capture()
     return fb;
 }
 
-bool Camera::captureCard(int learn_card)
+bool Camera::captureCard()
 {
-    //dprintf("capturing card, learn_card=%d", learn_card);
-    last_card = CARD_NULL;
-    camera_fb_t *fb = cam.capture();
-    if (fb == NULL) {
-        return false;
-    }
+    for (int attempt = 0 ; ; attempt++) {
+        dprintf("capturing card, attempt=%d, learning=%d", attempt, learning);
+        last_card = CARD_NULL;
+        camera_fb_t *fb = cam.capture();
+        if (fb == NULL) {
+            return false;
+        }
 
-    // pick useful region
-    int x = WINDOW_X;
-    int y = WINDOW_Y;
-    int w = WINDOW_WIDTH;
-    int h = WINDOW_HEIGHT;
-    unpack_565((unsigned short *)fb->buf + x + y * fb->width, fb->width, w, h, latest);
-    esp_camera_fb_return(fb);
+        // pick useful region
+        int x = WINDOW_X;
+        int y = WINDOW_Y;
+        int w = WINDOW_WIDTH;
+        int h = WINDOW_HEIGHT;
+        unpack_565((unsigned short *)fb->buf + x + y * fb->width, fb->width, w, h, latest);
+        esp_camera_fb_return(fb);
 
-    // located card and suit
-    latest.locate(tmp, card, suit);
+        // located card and suit
+        latest.locate(tmp, card, suit);
 
-    // identify card OR learn
-    if (learn_card == CARD_NULL) { 
-        if (cards.data != NULL) {
-            int c = card.match(cards);
-            int r = suit.match(suits);
-            if (c >= 0 && r >= 0) {
-                last_card = c + r * 13;
-                //dprintf("setting last_card to %d, %s", last_card, full_name(last_card));
+        // identify card OR learn
+        if (!learning) {
+            if (cards.data != NULL) {
+                int c = card.match(cards);
+                int r = suit.match(suits);
+                if (c >= 0 && r >= 0) {
+                    int card = c + r * 13;
+                    //dprintf("setting last_card to %d, %s", last_card, full_name(last_card));
+                    if (card == prev_card && attempt == 0) {
+                        dprintf("capture: detected duplicate %s, trying again", full_name(card));
+                        continue;
+                    }
+                    last_card = card;
+                } else {
+                    last_card = CARD_FAIL;
+                }
             } else {
                 last_card = CARD_FAIL;
             }
         } else {
-            last_card = CARD_FAIL;
+            // learn
+            //dprintf("setting last_card to learn_card=%d", learn_card);
+            last_card = card_count;
         }
-        if (last_card == CARD_FAIL) {
-            dprintf("setting last_card to CARD_FAIL");
+        prev_card = last_card;
+        dprintf("capture: frame %d, identify card %d as card %s", frame_nr, card_count, full_name(last_card));
+        if (cardsuit.data != NULL) {
+            int c = CARD(last_card);
+            int r = SUIT(last_card);
+            cardsuit.copy(c * CARDSUIT_WIDTH, r * CARDSUIT_HEIGHT, card);
+            cardsuit.copy(c * CARDSUIT_WIDTH, r * CARDSUIT_HEIGHT + CARD_HEIGHT + 2, suit);
         }
-    } else {
-        // REMIND: learn
-        dprintf("setting last_card to learn_card=%d", learn_card);
-        last_card = learn_card;
-        if (learn_card == 0) {
-            cardsuit.init(SUITLEN * CARDSUIT_WIDTH, NSUITS * CARDSUIT_HEIGHT);
+        if (overview.data != NULL) {
+            int cs = card_count % DECKLEN;
+            int c = CARD(cs);
+            int r = SUIT(cs);
+            overview.copy(c * latest.width, r * latest.height, latest);
         }
-    }
-    dprintf("capture: identify frame %d as card %s", frame_nr, full_name(last_card));
-    if (cardsuit.data != NULL) {
-        int c = CARD(last_card);
-        int r = SUIT(last_card);
-        cardsuit.copy(c * CARDSUIT_WIDTH, r * CARDSUIT_HEIGHT, card);
-        cardsuit.copy(c * CARDSUIT_WIDTH, r * CARDSUIT_HEIGHT + CARD_HEIGHT + 2, suit);
-    }
-    if (overview.data != NULL) {
-        int cs = card_count % DECKLEN;
-        int c = CARD(cs);
-        int r = SUIT(cs);
-        overview.copy(c * latest.width, r * latest.height, latest);
-    }
-    card_count += 1;
-    return true;
-}
-
-void Camera::clearCard()
-{
-    dprintf("clearing cards");
-    last_card = CARD_NULL;
-    card_count = 0;
-    if (true) {
-        overview.init(SUITLEN * latest.width, NSUITS * latest.height);
+        card_count += 1;
+        return true;
     }
 }
 

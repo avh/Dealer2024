@@ -22,7 +22,6 @@ public:
     unsigned long eject_tm;
     unsigned long card_tm;
     bool learning = false;
-    int learn_card = CARD_NULL;
     int current_card = CARD_NULL;
     int loaded_card = CARD_NULL;
     
@@ -30,7 +29,7 @@ public:
     Ejector(const char *name) : IdleComponent(name) {}
 
     bool captureCard();
-    bool identifyCard(bool blocking = true, int timeout = 1000);
+    bool identifyCard(int timeout = 1000);
 
     bool load(bool learn = false);
     bool eject();

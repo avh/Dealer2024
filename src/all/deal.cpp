@@ -71,6 +71,7 @@ extern const char *short_name(int cs)
     case CARD_NULL : return "N";
     case CARD_EMPTY: return "E";
     case CARD_FAIL: return "F";
+    case CARD_USED: return "U";
     }
 
     static char short_name_buf[8];
@@ -81,9 +82,10 @@ extern const char *short_name(int cs)
 extern const char *full_name(int cs)
 {
     switch (cs) {
-    case CARD_NULL : return "No Card";
-    case CARD_EMPTY: return "Empty Hopper";
-    case CARD_FAIL: return "Card Failed";
+    case CARD_NULL : return "NULL";
+    case CARD_EMPTY: return "EMPTY";
+    case CARD_FAIL: return "FAIL";
+    case CARD_USED: return "USED";
     }
     const char *card_name;
     int c = CARD(cs);

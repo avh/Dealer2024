@@ -57,10 +57,10 @@ BusSlave bus(CAMERA_ADDR, [] (BusSlave &bus, BusSlave::Buffer &req, BusSlave::Bu
   // command handler, blocking is allowed, but no responses
   switch (req[0]) {
     case CMD_CLEAR:
-      cam.clearCard();
+      cam.clearCard(req[1]);
       break;
     case CMD_CAPTURE:
-      cam.captureCard(req[1]);
+      cam.captureCard();
       break;
     case CMD_COLLATE:
       cam.collate();
