@@ -32,12 +32,14 @@
 #define b565(v)     (((v) & 0x1F00) >> 5)
 
 //#define convert565(v) (r565(v) + b565(v) + (g565(v)<<1))
-#define convert565(v) ((b565(v) + g565(v))<<1)
+#define convert565(v) ((b565(v) + g565(v))>>1)
 
-#define WINDOW_X                 150
-#define WINDOW_Y                 140
-#define WINDOW_WIDTH             300
-#define WINDOW_HEIGHT            140
+#define WINDOW_X                 50
+#define WINDOW_Y                 85
+#define WINDOW_WIDTH             120
+#define WINDOW_HEIGHT            50
+#define WIN_WIDTH                WINDOW_HEIGHT
+#define WIN_HEIGHT               WINDOW_WIDTH
 
 Image latest;
 Image tmp;
@@ -48,9 +50,10 @@ Image overview;
 Image cards;
 Image suits;
 extern WebServer www;
+int light_delay = 200;
 
 // unpack 565, convert from little endian to grayscale, rotate, scale down
-static void unpack_565(unsigned short *src, int src_stride, int src_width, int src_height, Image &dst)
+static void unpack_565_rot_scale(unsigned short *src, int src_stride, int src_width, int src_height, Image &dst)
 {
     dst.init(src_height/2, src_width/2);
     
@@ -60,7 +63,20 @@ static void unpack_565(unsigned short *src, int src_stride, int src_width, int s
         pixel *dp = dstp;
         for (int r = 0 ; r < dst.height ; r++, sp += 2, dp -= dst.stride) {
             int v = convert565(sp[0]) + convert565(sp[1]) + convert565(sp[src_stride+0]) + convert565(sp[src_stride+1]);
-            *dp = (v>>4) & 0xFF;
+            *dp = (v>>2) & 0xFF;
+        }
+    }
+}
+static void unpack_565_rot(unsigned short *src, int src_stride, int src_width, int src_height, Image &dst)
+{
+    dst.init(src_height, src_width);
+    
+    pixel *dstp = dst.data + dst.width * (dst.height - 1);
+    for (int c = 0 ; c < dst.width ; c++, src += src_stride, dstp += 1) {
+        unsigned short *sp = src;
+        pixel *dp = dstp;
+        for (int r = 0 ; r < dst.height ; r++, sp += 1, dp -= dst.stride) {
+            *dp = convert565(*sp);
         }
     }
 }
@@ -88,10 +104,13 @@ void Camera::init()
     config.pin_pwdn = PWDN_GPIO_NUM;
     config.pin_reset = RESET_GPIO_NUM;
     config.xclk_freq_hz = 20000000;
-    config.frame_size = FRAMESIZE_VGA;
+    //config.xclk_freq_hz = 10000000;
+    //config.frame_size = FRAMESIZE_VGA;
+    config.frame_size = FRAMESIZE_240X240;
     //config.frame_size = FRAMESIZE_240X240;
     //config.pixel_format = PIXFORMAT_JPEG;
     config.pixel_format = PIXFORMAT_RGB565;
+    //config.pixel_format = PIXFORMAT_RGB888;
     //config.pixel_format = PIXFORMAT_GRAYSCALE;
     //config.grab_mode = CAMERA_GRAB_WHEN_EMPTY;
     config.grab_mode = CAMERA_GRAB_LATEST;
@@ -137,6 +156,11 @@ void Camera::init()
 
     WebServer::add("/original.jpg", [](HTTP &http) {
         camera_fb_t *fb = cam.capture();
+
+        for (int i = 0 ; i < 10 && fb != NULL ; i++) {
+            esp_camera_fb_return(fb);
+            fb = cam.capture();
+        }
         if (fb == NULL) {
             http.header(404, "Capture Failed");
             http.close();
@@ -226,6 +250,9 @@ void Camera::init()
             } else if (key == "aec") {
                 s->set_aec_value(s, atoi(value.c_str()));
                 http.printf("set aec_value to %d\n", atoi(value.c_str()));
+            } else if (key == "light_delay") {
+                light_delay = atoi(value.c_str());
+                http.printf("set light_delay to %d\n", atoi(value.c_str()));
             }
         } 
         http.close();
@@ -245,9 +272,11 @@ void Camera::clearCard(bool learn)
     }
 
     if (true) {
-        overview.init(SUITLEN * (WINDOW_HEIGHT/2), NSUITS * (WINDOW_WIDTH/2));
+        overview.init(SUITLEN * WIN_WIDTH, NSUITS * WIN_HEIGHT);
     }
 }
+
+Image frms[2];
 
 camera_fb_t *Camera::capture()
 {
@@ -256,20 +285,27 @@ camera_fb_t *Camera::capture()
     light.on(100, 1000);
 
     // wait for the light to come on
-    while (millis() < light.on_tm + 550) {
+    while (millis() < light.on_tm + light_delay) {
         delay(1);
     }
 
-    camera_fb_t *fb = esp_camera_fb_get();
-    if (fb == NULL) {
-        dprintf("camera: esp_camera_fb_get failed");
-        return NULL;
+    for (int attempt = 0 ; ; attempt++) {
+        camera_fb_t *fb = esp_camera_fb_get();
+        if (fb == NULL) {
+            dprintf("camera: esp_camera_fb_get failed");
+            return NULL;
+        }
+        unpack_565_rot((unsigned short *)fb->buf + WINDOW_X + WINDOW_Y * fb->width, fb->width, WINDOW_WIDTH, WINDOW_HEIGHT, frms[frame_nr%2]);
+        if (frms[0].same(frms[1])) {
+            dprintf("frame the same, retrying");
+            continue;
+        }
+        
+        frame_tm = millis();
+        frame_nr += 1;
+        dprintf("camera: capture took %dms, frame=%d", int(millis() - tm), frame_nr);
+        return fb;
     }
-    
-    frame_tm = millis();
-    frame_nr += 1;
-    //dprintf("camera: capture took %dms, frame=%d", int(millis() - tm), frame_nr);
-    return fb;
 }
 
 bool Camera::captureCard()
@@ -287,7 +323,7 @@ bool Camera::captureCard()
         int y = WINDOW_Y;
         int w = WINDOW_WIDTH;
         int h = WINDOW_HEIGHT;
-        unpack_565((unsigned short *)fb->buf + x + y * fb->width, fb->width, w, h, latest);
+        unpack_565_rot((unsigned short *)fb->buf + x + y * fb->width, fb->width, w, h, latest);
         esp_camera_fb_return(fb);
 
         // located card and suit
@@ -318,7 +354,7 @@ bool Camera::captureCard()
             last_card = card_count;
         }
         prev_card = last_card;
-        dprintf("capture: frame %d, identify card %d as card %s", frame_nr, card_count, full_name(last_card));
+        dprintf("capture: frame %d, %s card %d as %s", frame_nr, learning ? "learn" : "identify", card_count, full_name(last_card));
         if (cardsuit.data != NULL) {
             int c = CARD(last_card);
             int r = SUIT(last_card);

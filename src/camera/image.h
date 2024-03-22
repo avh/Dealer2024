@@ -54,7 +54,7 @@ class Image {
     float distance(Image &other);
     int match(Image &samples);
 
-
+    bool same(Image &other);
     void send(class HTTP& http);
     int save(const char *fname);
     bool load(const char *fname);

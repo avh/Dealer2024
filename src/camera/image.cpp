@@ -193,7 +193,7 @@ bool Image::locate(Image &tmp, Image &card, Image &suit)
   tmp.copy(0, 0, crop(x, 0, CARDSUIT_WIDTH, height));
 
   // determine vertical location
-  int ycard = tmp.vlocate(10, 50, CARD_HEIGHT);
+  int ycard = tmp.vlocate(5, 35, CARD_HEIGHT-10) - 5;
   int ysuit = tmp.vlocate(ycard + SUIT_OFFSET - 10, ycard + SUIT_OFFSET + 10, SUIT_HEIGHT);
   //dprintf("locate X=%d, YC=%d, YS=%d", x, ycard, ysuit);
   card = tmp.crop(0, ycard, CARD_WIDTH, CARD_HEIGHT);
@@ -212,7 +212,7 @@ int Image::hlocate(int xmin, int xmax, int w)
   for (int i = 0 ; i < n ; i++) {
     unsigned long sum = 0;
     pixel *p = addr(xmin + i, 0);
-    for (int j = 0 ; j < height ; j++, p += stride) {
+    for (int j = 0 ; j < height-1 ; j++, p += stride) {
       long v = p[0] - p[stride];
       sum += v * v;
     }
@@ -239,28 +239,33 @@ int Image::vlocate(int ymin, int ymax, int h)
   std::unique_ptr<unsigned long[]> sums(new unsigned long[n]);
   bzero((void *)sums.get(), n*sizeof(int));
 
-  // determine horizontal position
+  // determine vertical position
   for (int i = 0 ; i < n ; i++) {
-    unsigned long sum = 0;
     pixel *p = addr(0, ymin + i);
+    int vmin = 255, vmax = 0;
     for (int j = 0 ; j < width ; j++, p += 1) {
-      long v = p[0] - p[1];
-      sum += v * v;
+      int v = *p;
+      vmin = min(vmin, v);
+      vmax = max(vmax, v);
     }
-    sums[i] = sum;
+    sums[i] = (vmax - vmin) * (vmax - vmin);
+    //dprintf("vlocate: %d: %d, %d, %d", i, vmin, vmax, sums[i]);
   }
 
-  // smooth and locate vertically
-  unsigned long besty = 0;
+  int m = h/4;
   int y = -1;
-  unsigned long *p = sums.get();
-  for (int i = 0 ; i < n - h ; i++, p++) {
-    unsigned long sum = p[0]*4 + p[1]*2 + p[2] + p[h - 3] + p[h - 2]*2 + p[h - 1]*4;
-    if (y < 0 || besty > sum) {
+  unsigned long besty = 0;
+  for (int i = 0 ; i < ymax - ymin ; i++) {
+    unsigned long sum = 0;
+    for (int j = 0 ; j < m ; j++) {
+      sum += (j+1) * (2*sums[i+j] + sums[(i+h-1)-j]);
+    }
+    if (y < 0 || besty < sum) {
       besty = sum;
       y = ymin + i;
     }
   }
+  //dprintf("y=%d, besty=%ul, ymin=%d, ymax=%d, h=%d", y, besty, ymin, ymax, h);
   return y;
 }
 
@@ -296,3 +301,19 @@ int Image::match(Image &samples)
   return bestd < 100.0f ? besti : -1;
 }
 
+bool Image::same(Image &other)
+{
+  if (width != other.width || height != other.height) {
+    return false;
+  }
+  for (int r = 0 ; r < height ; r++) {
+    const pixel *p1 = addr(0, r);
+    const pixel *p2 = other.addr(0, r);
+    for (int c = 0 ; c < width ; c++) {
+      if (*p1++ != *p2++) {
+        return false;
+      }
+    }
+  }
+  return true;
+}

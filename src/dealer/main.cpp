@@ -224,18 +224,19 @@ class Dealer : public IdleComponent {
       return true;
     }
 
+    void collate()
+    {
+        if (state == DEALER_LEARNING && deal_count > 0) {
+          dprintf("dealer: collating %d cards", deal_count);
+          bus.request(CAMERA_ADDR, (const unsigned char []){CMD_COLLATE}, 1, NULL, 0);
+        }
+    }
+
     void deal_done()
     {
         deal_summary();
         dprintf("dealer: done after %d cards", deal_count);
-        switch (state) {
-          case DEALER_LEARNING:
-            if (deal_count > 0) {
-              dprintf("dealer: collating %d cards", deal_count);
-              bus.request(CAMERA_ADDR, (const unsigned char []){CMD_COLLATE}, 1, NULL, 0);
-            }
-            break;
-        }
+        collate();
         reset(DEALER_IDLE);
   }
 
@@ -243,6 +244,7 @@ class Dealer : public IdleComponent {
     {
         deal_summary();
         dprintf("dealer: failed after %d cards, %s", deal_count, reason);
+        collate();
         reset(DEALER_IDLE);
     }
 
@@ -303,7 +305,11 @@ class Dealer : public IdleComponent {
                   deal_done();
                   break;
                 case CARD_FAIL:
-                  deal_failed("eject card failed");
+                  if (deal_count == 52) {
+                    deal_done();
+                  } else {
+                    deal_failed("eject card failed");
+                  }
                   break;
                 default:
                   if (ejector.loaded_card >= 0 && ejector.loaded_card < DECKLEN) {
