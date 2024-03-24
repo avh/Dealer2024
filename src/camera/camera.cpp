@@ -2,7 +2,6 @@
 
 #include "deal.h"
 #include "camera.h"
-#include "image.h"
 #include "webserver.h"
 
 #define CAMERA_MODEL_XIAO_ESP32S3
@@ -184,6 +183,7 @@ void Camera::init()
     });
 
     WebServer::add("/latest.jpg", [](HTTP &http) {
+        cam.captureCard();
         latest.send(http);
     }); 
     WebServer::add("/cardsuit.jpg", [](HTTP &http) {
@@ -326,27 +326,31 @@ bool Camera::captureCard()
         unpack_565_rot((unsigned short *)fb->buf + x + y * fb->width, fb->width, w, h, latest);
         esp_camera_fb_return(fb);
 
-        // located card and suit
-        latest.locate(tmp, card, suit);
-
         // identify card OR learn
         if (!learning) {
-            if (cards.data != NULL) {
-                int c = card.match(cards);
-                int r = suit.match(suits);
-                if (c >= 0 && r >= 0) {
-                    int card = c + r * 13;
-                    //dprintf("setting last_card to %d, %s", last_card, full_name(last_card));
-                    if (card == prev_card && attempt == 0) {
-                        dprintf("capture: detected duplicate %s, trying again", full_name(card));
-                        continue;
+            // located card and suit
+            latest.locate(tmp, card, suit);
+
+            // try to predict card using ML
+            last_card = predict(latest);
+            if (last_card == CARD_NULL) {
+                if (cards.data != NULL) {
+                    int c = card.match(cards);
+                    int r = suit.match(suits);
+                    if (c >= 0 && r >= 0) {
+                        int card = c + r * 13;
+                        //dprintf("setting last_card to %d, %s", last_card, full_name(last_card));
+                        if (card == prev_card && attempt == 0) {
+                            dprintf("capture: detected duplicate %s, trying again", full_name(card));
+                            continue;
+                        }
+                        last_card = card;
+                    } else {
+                        last_card = CARD_FAIL;
                     }
-                    last_card = card;
                 } else {
                     last_card = CARD_FAIL;
                 }
-            } else {
-                last_card = CARD_FAIL;
             }
         } else {
             // learn

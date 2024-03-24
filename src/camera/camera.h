@@ -4,6 +4,7 @@
 #include <esp_camera.h>
 #include "util.h"
 #include "light.h"
+#include "image.h"
 
 class Camera : InitComponent {
   public:
@@ -22,6 +23,7 @@ class Camera : InitComponent {
     bool captureCard();
     void clearCard(bool learn = false);
     void collate();
+    int predict(const Image &img);
 };
 
 extern LEDArray light;
