@@ -5,8 +5,6 @@
 #include "image.h"
 #include "webserver.h"
 
-#define CAMERA_MODEL_XIAO_ESP32S3
-
 #if defined(CAMERA_MODEL_XIAO_ESP32S3)
 #define PWDN_GPIO_NUM     -1
 #define RESET_GPIO_NUM    -1
@@ -25,6 +23,25 @@
 #define VSYNC_GPIO_NUM    38
 #define HREF_GPIO_NUM     47
 #define PCLK_GPIO_NUM     13
+#endif
+#if defined(CAMERA_MODEL_LUATOS_ESP32S3)
+#define PWDN_GPIO_NUM    -1
+#define RESET_GPIO_NUM   -1
+#define XCLK_GPIO_NUM    39
+#define SIOD_GPIO_NUM    21
+#define SIOC_GPIO_NUM    46
+
+#define Y9_GPIO_NUM      35 //unused?
+#define Y8_GPIO_NUM      34 //unused?
+#define Y7_GPIO_NUM      40
+#define Y6_GPIO_NUM      38
+#define Y5_GPIO_NUM      37
+#define Y4_GPIO_NUM      35
+#define Y3_GPIO_NUM      33
+#define Y2_GPIO_NUM      48
+#define VSYNC_GPIO_NUM   42
+#define HREF_GPIO_NUM    41
+#define PCLK_GPIO_NUM    36
 #endif
 
 #define r565(v)     ((v) & 0x00F8)
@@ -116,37 +133,40 @@ void Camera::init()
     config.grab_mode = CAMERA_GRAB_LATEST;
     config.fb_location = CAMERA_FB_IN_PSRAM;
     config.jpeg_quality = 0;
-    config.fb_count = 3;
+    config.fb_count = 2;
+
+#ifdef CAMERA_MODEL_LUATOS_ESP32S3
+    config.fb_location = CAMERA_FB_IN_DRAM;
+#endif
 
     // camera init
     esp_err_t err = esp_camera_init(&config);
-    if (err != ESP_OK) {
+    if (err == ESP_OK) {
+        sensor_t * s = esp_camera_sensor_get();
+        s->set_brightness(s, 0); 
+        s->set_saturation(s, 0);
+        s->set_contrast(s, 0);
+        s->set_agc_gain(s, 0);
+        s->set_aec_value(s, 20);
+        s->set_whitebal(s, 0);
+        s->set_awb_gain(s, 0);
+
+        s->set_exposure_ctrl(s, 0);
+        s->set_aec2(s, 0);
+        s->set_gain_ctrl(s, 0);
+        s->set_bpc(s, 0);
+        s->set_wpc(s, 0);
+        s->set_raw_gma(s, 0);
+    } else {
         dprintf("capture: camera init failed with error 0x%x", err);
-        return;
     }
 
-    sensor_t * s = esp_camera_sensor_get();
-    s->set_brightness(s, 0); 
-    s->set_saturation(s, 0);
-    s->set_contrast(s, 0);
-    s->set_agc_gain(s, 0);
-    s->set_aec_value(s, 20);
-    s->set_whitebal(s, 0);
-    s->set_awb_gain(s, 0);
-
-    s->set_exposure_ctrl(s, 0);
-    s->set_aec2(s, 0);
-    s->set_gain_ctrl(s, 0);
-    s->set_bpc(s, 0);
-    s->set_wpc(s, 0);
-    s->set_raw_gma(s, 0);
-
     if (cards.load("/cards.jpg")) {
-        if (cards.width != CARD_WIDTH * 13 || cards.height != CARD_HEIGHT) {
+        if (cards.width != CARD_WIDTH * (HANDSIZE+1) || cards.height != CARD_HEIGHT) {
             dprintf("ERROR: cards image has wrong dimensions: %dx%d", cards.width, cards.height);
             cards.free();
         } else if (suits.load("/suits.jpg")) {
-            if (suits.width != SUIT_WIDTH * 4 || suits.height != SUIT_HEIGHT) {
+            if (suits.width != SUIT_WIDTH * (NSUITS+1) || suits.height != SUIT_HEIGHT) {
                 dprintf("ERROR: suits image has wrong dimensions: %dx%d", suits.width, suits.height);
                 cards.free();
                 suits.free();
@@ -333,9 +353,11 @@ bool Camera::captureCard()
         if (!learning) {
             if (cards.data != NULL) {
                 int c = card.match(cards);
-                int r = suit.match(suits);
-                if (c >= 0 && r >= 0) {
-                    int card = c + r * 13;
+                int s = suit.match(suits);
+                if (c == SUITLEN || s == NSUITS) {
+                    last_card = CARD_EMPTY;
+                } else if (c >= 0 && s >= 0) {
+                    int card = c + s * SUITLEN;
                     //dprintf("setting last_card to %d, %s", last_card, full_name(last_card));
                     if (card == prev_card && attempt == 0) {
                         dprintf("capture: detected duplicate %s, trying again", full_name(card));
@@ -377,7 +399,7 @@ void Camera::collate()
     dprintf("collate");
     if (cardsuit.data != NULL) {
         // cards
-        cards.init(HANDSIZE * CARD_WIDTH, CARD_HEIGHT);
+        cards.init((HANDSIZE+1) * CARD_WIDTH, CARD_HEIGHT);
         for (int y = 0 ; y < cards.height; y++) {
             for (int x = 0 ; x < cards.width ; x++) {
                 unsigned long sum = 0;
@@ -387,10 +409,14 @@ void Camera::collate()
                 *cards.addr(x, y) = sum / NSUITS;
             }
         }
-        dprintf("update cards");
+        for (int r = 0 ; r < CARD_HEIGHT ; r++) {
+            for (int c = 0 ; c < CARD_WIDTH ; c++) {
+                *cards.addr((HANDSIZE * CARD_WIDTH) + c, r) = 32;
+            }
+        }
 
         // suits
-        suits.init(NSUITS * SUIT_WIDTH, SUIT_HEIGHT);
+        suits.init((NSUITS+1) * SUIT_WIDTH, SUIT_HEIGHT);
         for (int s = 0 ; s < 4 ; s++) {
             for (int y = 0 ; y < SUIT_HEIGHT; y++) {
                 for (int x = 0 ; x < SUIT_WIDTH ; x++) {
@@ -402,6 +428,10 @@ void Camera::collate()
                 }
             }
         }
-        dprintf("update suits");
+        for (int r = 0 ; r < SUIT_HEIGHT ; r++) {
+            for (int c = 0 ; c < SUIT_WIDTH ; c++) {
+                *suits.addr((NSUITS * SUIT_WIDTH) + c, r) = 32;
+            }
+        }
     }
 }

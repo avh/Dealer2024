@@ -155,13 +155,16 @@ void Ejector::idle(unsigned long now)
         if (card.state && now > card.last_tm + 70) {
             motor1.reverse();
             motor2.stop();
-            state = EJECT_RETRACTING;
-            //dprintf("load done, retracting");
             loaded_card = current_card;
             current_card = CARD_USED;
-        //} else if (card.state && card.last_tm < millis() - 40 && motor1.goal_speed > 0) {
-        //    motor1.reverse();
-        //    dprintf("loading, reversing");
+            //dprintf("load done, retracting");
+            state = EJECT_RETRACTING;
+        } else if (current_card == CARD_EMPTY) {
+            loaded_card = CARD_EMPTY;
+            motor1.stop();
+            motor2.stop();
+            //dprintf("load done, empty");
+            state = EJECT_OK;
         } else if (now > eject_tm + 1000) {
             // maybe retry?
             state = EJECT_FAILED;

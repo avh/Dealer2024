@@ -1,6 +1,7 @@
 // (c)2024, Arthur van Hoff, Artfahrt Inc.
 #include <esp_camera.h>
 #include <JPEGDecoder.h>
+#include "deal.h"
 #include "image.h"
 #include "webserver.h"
 
@@ -291,13 +292,13 @@ int Image::match(Image &samples)
   for (int i = 0 ; i < n ; i++) {
     Image sample = samples.crop(i*width, 0, width, height);
     float d = distance(sample);
-    //dprintf("distance %d: %f", i, d);
+    dprintf("distance %d %c: %f", i, card2ch(i), d);
     if (besti < 0 || d < bestd) {
       besti = i;
       bestd = d;
     }
   }
-  //dprintf("match: %d, %f", besti, bestd);
+  dprintf("match: %d, %f", besti, bestd);
   return bestd < 100.0f ? besti : -1;
 }
 
