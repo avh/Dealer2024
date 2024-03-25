@@ -70,6 +70,8 @@ int Camera::predict(const Image &img)
     if (model == NULL) {
         return CARD_FAIL;
     }
+
+    unsigned long tm = millis();
     // copy the image
     float *dp = input->data.f;
     for (int r = 0 ; r < img.height ; r++) {
@@ -83,13 +85,13 @@ int Camera::predict(const Image &img)
         return CARD_FAIL;
     }
     TfLiteTensor *output = interpreter->output(0);
-    dprintf("predict: output bytes=%d, type=%d, %s", output->bytes, output->type, TfLiteTypeGetName(output->type));
-    for (int i = 0 ; i < output->dims->size ; i++) {
-        dprintf("predict: output dim[%d] = %d", i, output->dims->data[i]);
-    }
-    for (int i = 0 ; i < 53 ; i++) {
-        dprintf("predict: output[%d] = %f", i, output->data.f[i]);
-    }
+    //dprintf("predict: output bytes=%d, type=%d, %s", output->bytes, output->type, TfLiteTypeGetName(output->type));
+    //for (int i = 0 ; i < output->dims->size ; i++) {
+    //    dprintf("predict: output dim[%d] = %d", i, output->dims->data[i]);
+    //}
+    //for (int i = 0 ; i < 53 ; i++) {
+    //    dprintf("predict: output[%d] = %f", i, output->data.f[i]);
+    //}
     int cs = 0;
     float best = output->data.f[0];
     for (int i = 1 ; i < 53 ; i++) {
@@ -101,7 +103,8 @@ int Camera::predict(const Image &img)
     if (cs == 52) {
         cs = CARD_EMPTY;
     }
-    dprintf("predict: best index=%d, value=%f, %s", cs, best, full_name(cs));
+    tm = millis() - tm;
+    dprintf("predict: best index=%d, value=%f, %s in %lums", cs, best, full_name(cs), tm);
 
     return cs;
 }

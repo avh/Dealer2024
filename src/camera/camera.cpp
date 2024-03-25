@@ -272,7 +272,7 @@ void Camera::clearCard(bool learn)
     }
 
     if (true) {
-        overview.init(SUITLEN * WIN_WIDTH, NSUITS * WIN_HEIGHT);
+        overview.init((SUITLEN+1) * WIN_WIDTH, NSUITS * WIN_HEIGHT);
     }
 }
 
@@ -366,10 +366,14 @@ bool Camera::captureCard()
             cardsuit.copy(c * CARDSUIT_WIDTH, r * CARDSUIT_HEIGHT + CARD_HEIGHT + 2, suit);
         }
         if (overview.data != NULL) {
-            int cs = card_count % DECKLEN;
-            int c = CARD(cs);
-            int r = SUIT(cs);
-            overview.copy(c * latest.width, r * latest.height, latest);
+            if (card_count == 52) {
+                overview.copy(13 * latest.width, 3 * latest.height, latest);
+            } else {
+                int cs = card_count % DECKLEN;
+                int c = CARD(cs);
+                int r = SUIT(cs);
+                overview.copy(c * latest.width, r * latest.height, latest);
+            }
         }
         card_count += 1;
         return true;
