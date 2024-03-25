@@ -109,7 +109,7 @@ int Camera::predict(const Image &img)
         }
     }
     int cs = s * HANDSIZE + c;
-    if (s > NSUITS || c > HANDSIZE) {
+    if (s >= NSUITS || c >= HANDSIZE) {
         cs = CARD_EMPTY;
     }
     tm = millis() - tm;
