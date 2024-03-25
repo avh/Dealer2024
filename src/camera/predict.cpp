@@ -92,19 +92,28 @@ int Camera::predict(const Image &img)
     //for (int i = 0 ; i < 53 ; i++) {
     //    dprintf("predict: output[%d] = %f", i, output->data.f[i]);
     //}
-    int cs = 0;
-    float best = output->data.f[0];
-    for (int i = 1 ; i < 53 ; i++) {
-        if (output->data.f[i] > best) {
-            best = output->data.f[i];
-            cs = i;
+    int s = 0;
+    float sbest = output->data.f[0];
+    for (int i = 1 ; i <= NSUITS ; i++) {
+        if (output->data.f[i] > sbest) {
+            sbest = output->data.f[i];
+            s = i;
         }
     }
-    if (cs == 52) {
+    int c = 0;
+    float cbest = output->data.f[NSUITS];
+    for (int i = 0 ; i <= HANDSIZE ; i++) {
+        if (output->data.f[NSUITS + 1 + i] > cbest) {
+            cbest = output->data.f[NSUITS + 1 + i];
+            c = i;
+        }
+    }
+    int cs = s * HANDSIZE + c;
+    if (s > NSUITS || c > HANDSIZE) {
         cs = CARD_EMPTY;
     }
     tm = millis() - tm;
-    dprintf("predict: best index=%d, value=%f, %s in %lums", cs, best, full_name(cs), tm);
+    dprintf("predict: best index=%d, %s in %lums", cs, full_name(cs), tm);
 
     return cs;
 }
