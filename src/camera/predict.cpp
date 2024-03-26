@@ -1,8 +1,7 @@
 // (c)2024, Arthur van Hoff, Artfahrt Inc.
-#define USE_TENSORFLOW
+
 #ifdef USE_TENSORFLOW
 #include <tensorflow/lite/micro/micro_interpreter.h>
-#include <tensorflow/lite/micro/micro_error_reporter.h>
 #include <tensorflow/lite/micro/micro_mutable_op_resolver.h>
 #include <esp_heap_caps.h>
 #include "card_model.h"
@@ -47,9 +46,7 @@ int Camera::predict(const Image &img)
         micro_op_resolver.AddFullyConnected();
         dprintf("predict: MicroMutableOpResolver");
 
-        static tflite::MicroErrorReporter micro_error_reporter;
-
-        static tflite::MicroInterpreter static_interpreter(model, micro_op_resolver, tensor_arena, kTensorArenaSize, &micro_error_reporter);
+        static tflite::MicroInterpreter static_interpreter(model, micro_op_resolver, tensor_arena, kTensorArenaSize);
         interpreter = &static_interpreter;
         dprintf("predict: MicroInterpreter");
 
@@ -73,11 +70,11 @@ int Camera::predict(const Image &img)
 
     unsigned long tm = millis();
     // copy the image
-    float *dp = input->data.f;
+    int8_t *dp = input->data.int8;
     for (int r = 0 ; r < img.height ; r++) {
         const pixel *sp = img.addr(0, r);
         for (int c = 0 ; c < img.width ; c++) {
-            *dp++ = *sp++ / 255.0f - 0.5f;
+            *dp++ = *sp++ - 128;
         }
     }
     if (kTfLiteOk != interpreter->Invoke()) {
@@ -85,26 +82,28 @@ int Camera::predict(const Image &img)
         return CARD_FAIL;
     }
     TfLiteTensor *output = interpreter->output(0);
-    //dprintf("predict: output bytes=%d, type=%d, %s", output->bytes, output->type, TfLiteTypeGetName(output->type));
-    //for (int i = 0 ; i < output->dims->size ; i++) {
-    //    dprintf("predict: output dim[%d] = %d", i, output->dims->data[i]);
-    //}
-    //for (int i = 0 ; i < 53 ; i++) {
-    //    dprintf("predict: output[%d] = %f", i, output->data.f[i]);
-    //}
+    if (false) {
+        dprintf("predict: output bytes=%d, type=%d, %s", output->bytes, output->type, TfLiteTypeGetName(output->type));
+        for (int i = 0 ; i < output->dims->size ; i++) {
+            dprintf("predict: output dim[%d] = %d", i, output->dims->data[i]);
+        }
+        for (int i = 0 ; i < output->dims->data[1] ; i++) {
+            dprintf("predict: output[%d] = %d", i, output->data.int8[i]);
+        }
+    }
     int s = 0;
-    float sbest = output->data.f[0];
+    int sbest = output->data.int8[0];
     for (int i = 1 ; i <= NSUITS ; i++) {
-        if (output->data.f[i] > sbest) {
-            sbest = output->data.f[i];
+        if (output->data.int8[i] > sbest) {
+            sbest = output->data.int8[i];
             s = i;
         }
     }
     int c = 0;
-    float cbest = output->data.f[NSUITS];
+    int cbest = output->data.int8[NSUITS];
     for (int i = 0 ; i <= HANDSIZE ; i++) {
-        if (output->data.f[NSUITS + 1 + i] > cbest) {
-            cbest = output->data.f[NSUITS + 1 + i];
+        if (output->data.int8[NSUITS + 1 + i] > cbest) {
+            cbest = output->data.int8[NSUITS + 1 + i];
             c = i;
         }
     }
@@ -113,7 +112,7 @@ int Camera::predict(const Image &img)
         cs = CARD_EMPTY;
     }
     tm = millis() - tm;
-    dprintf("predict: best index=%d, %s in %lums", cs, full_name(cs), tm);
+    //dprintf("predict: best index=%d, %s in %lums", cs, full_name(cs), tm);
 
     return cs;
 }

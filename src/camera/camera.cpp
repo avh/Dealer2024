@@ -4,8 +4,6 @@
 #include "camera.h"
 #include "webserver.h"
 
-#define CAMERA_MODEL_XIAO_ESP32S3
-
 #if defined(CAMERA_MODEL_XIAO_ESP32S3)
 #define PWDN_GPIO_NUM     -1
 #define RESET_GPIO_NUM    -1
