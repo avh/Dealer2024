@@ -275,15 +275,15 @@ bool Camera::captureCard()
 
         // predict card using ML
         last_card = predict(latest);
-        if (last_card == prev_card && attempt == 0) {
+        if (last_card == prev_card && attempt < 4) {
             dprintf("capture: detected duplicate %s, trying again", full_name(last_card));
             continue;
         }
+        if (last_card == CARD_MOTION && attempt < 4) {
+            dprintf("capture: detected motion %s, trying again", full_name(last_card));
+            continue;
+        }
         if (last_card == CARD_MOTION) {
-            if (attempt < 4) {
-                dprintf("capture: detected motion %s, trying again", full_name(last_card));
-                continue;
-            }
             last_card = CARD_FAIL;
         }
         dprintf("capture: frame %d, identify card %d as %s in %dms", frame_nr, card_count, full_name(last_card), millis() - tm);

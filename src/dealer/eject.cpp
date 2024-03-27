@@ -150,7 +150,12 @@ void Ejector::idle(unsigned long now)
         }
         break;
       case EJECT_LOADING:
-        if (card.state && now > card.last_tm + 70) {
+        if (current_card == CARD_EMPTY) {
+            motor1.stop();
+            motor2.stop();
+            state = EJECT_FINISH;
+            loaded_card = CARD_EMPTY;
+        } else if (card.state && now > card.last_tm + 70) {
             motor1.reverse();
             motor2.stop();
             state = EJECT_RETRACTING;

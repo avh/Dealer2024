@@ -261,8 +261,10 @@ class Dealer : public IdleComponent {
         dprintf("dealer: all cards present, sorted, and accounted for. Nice!");
       } else if (missing_count == 0 && duplicate_count == 0) {
         dprintf("dealer: all cards present and accounted for, not in order though");
+      } else if (deal_count == 0) {
+        dprintf("dealer: got no cards");
       } else {
-        dprintf("dealer: missing %d cards, %d duplicates", missing_count, duplicate_count);
+        dprintf("dealer: got %d cards, %d missing, %d duplicates", deal_count, missing_count, duplicate_count);
       }
     }
 
@@ -309,7 +311,11 @@ class Dealer : public IdleComponent {
                       last_tm = millis();
                     }
                     if (card_ready(ejector.loaded_card)) {
-                      dprintf("dealer: eject %s to %d", full_name(ejector.loaded_card), (int)angle.value());
+                      if (state == DEALER_DEALING) {
+                        dprintf("dealer: eject %s to %d", full_name(ejector.loaded_card), (int)angle.value());
+                      } else {
+                        dprintf("dealer: eject %s", full_name(ejector.loaded_card));
+                      }
                       if (!ejector.eject()) {
                         deal_failed("eject failed");
                         return;
