@@ -18,7 +18,8 @@ class IRSensor : public IdleComponent {
     virtual void idle(unsigned long now) {
       bool s = digitalRead(pin) == active_state;
       if (s != state) {
-        dprintf("fixing sensor, state=%d", s);
+        // REMIND: this happens
+        //dprintf("fixing sensor, state=%d", s);
         state = s;
         last_tm = now;
       }

@@ -8,7 +8,7 @@ extern BusMaster bus;
 
 bool Ejector::captureCard()
 {
-    delay(200);
+    //delay(200);
     //dprintf("captureCard learning=%d", learning);
     current_card = CARD_NULL;
     unsigned char buf[] = {CMD_CAPTURE};
@@ -43,7 +43,7 @@ bool Ejector::identifyCard(int timeout)
                     }
                     break;
                 }
-                dprintf("identifyCard: card=%d, %s", current_card, full_name(current_card));
+                //dprintf("identifyCard: card=%d, %s", current_card, full_name(current_card));
                 return true;
             }
             if (timeout == 0) {
@@ -113,7 +113,7 @@ bool Ejector::eject()
         return false;
     }
 
-    dprintf(learning ? "eject and learn" : "eject");
+    //dprintf(learning ? "eject and learn" : "eject");
     if (!identifyCard()) {
         dprintf("eject: failed to identify card");
         return false;
@@ -171,7 +171,7 @@ void Ejector::idle(unsigned long now)
         }
         break;
       case EJECT_RETRACTING:
-        if (now > eject_tm + 100) {
+        if (now > eject_tm + 20) {
             eject_tm = now;
             motor1.stop();
             motor2.stop();
@@ -180,7 +180,7 @@ void Ejector::idle(unsigned long now)
         }
         break;
       case EJECT_FINISH:
-        if (now > eject_tm + 140) {
+        if (now > eject_tm + 100) {
             state = EJECT_OK;
             motor1.stop();
             motor2.stop();

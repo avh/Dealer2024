@@ -21,11 +21,11 @@ Image::Image(pixel *data, int width, int height, int stride) : data(data), width
 {
 }
 
-bool Image::init(int width, int height)
+bool Image::init(int width, int height, pixel value)
 {
   if (owned && data != NULL) {
     if (this->width == width && this->height == height) {
-      bzero(data, width * height);
+      memset(data, value, width * height);
       return true;
     }
     ::free(data);
@@ -34,7 +34,7 @@ bool Image::init(int width, int height)
   if (data == NULL) {
     dprintf("WARNING: failed to allocate %d bytes for %dx%d image", width * height * sizeof(pixel), width, height);
   } else {
-    bzero(data, width * height);
+    memset(data, value, width * height);
   }
   this->width = width;
   this->height = height;

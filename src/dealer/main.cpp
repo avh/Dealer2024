@@ -16,7 +16,7 @@ BusMaster bus;
 Motor motor1("Motor1", M1_PIN1, M1_PIN2, 400, 5000);
 Motor motor2("Motor2", M2_PIN1, M2_PIN2, 400, 5000);
 //Motor fan("Fan", FN_PIN1, FN_PIN2, 100, 100000, 2000);
-Motor rotator("Rotator", MR_PIN2, MR_PIN1, 400, 400);
+Motor rotator("Rotator", MR_PIN2, MR_PIN1, 400, 200);
 AngleSensor angle("Angle", rotator);
 IRSensor card("Card", CARD_PIN, HIGH);
 Ejector ejector("Ejector");
@@ -214,13 +214,24 @@ class Dealer : public IdleComponent {
 
     int owner_position(int card)
     {
-      return deal.owner[card] * 20;
+      return deal.owner[card] * 35;
     }
 
     bool card_ready(int card)
     {
       // do something for this card
-      dprintf("dealer: card %d, %s", card, full_name(card));
+      switch (state) {
+        case DEALER_DEALING:
+          if (deal_position < 0) {
+            deal_position = owner_position(card);
+            angle.turnTo(deal_position);
+          }
+          if (!angle.near(deal_position)) {
+            // keep turning towards the owner position
+            return false;
+          }
+      }
+      //dprintf("dealer: card %d, %s", card, full_name(card));
       return true;
     }
 
@@ -326,11 +337,13 @@ class Dealer : public IdleComponent {
                       last_tm = millis();
                     }
                     if (card_ready(ejector.loaded_card)) {
+                      dprintf("dealer: eject %s to %d", full_name(ejector.loaded_card), (int)angle.value());
                       if (!ejector.eject()) {
                         deal_failed("eject failed");
                         return;
                       }
                       deal_count += 1;
+                      deal_position = -1;
                       last_tm = millis();
                     }
                   }

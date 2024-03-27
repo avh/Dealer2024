@@ -93,22 +93,24 @@ int Camera::predict(const Image &img)
     }
     int s = 0;
     int sbest = output->data.int8[0];
-    for (int i = 1 ; i <= NSUITS ; i++) {
+    for (int i = 1 ; i < NSUITS+2 ; i++) {
         if (output->data.int8[i] > sbest) {
             sbest = output->data.int8[i];
             s = i;
         }
     }
     int c = 0;
-    int cbest = output->data.int8[NSUITS];
-    for (int i = 0 ; i <= HANDSIZE ; i++) {
-        if (output->data.int8[NSUITS + 1 + i] > cbest) {
-            cbest = output->data.int8[NSUITS + 1 + i];
+    int cbest = output->data.int8[NSUITS+2];
+    for (int i = 1 ; i < HANDSIZE+2 ; i++) {
+        if (output->data.int8[NSUITS+2 + i] > cbest) {
+            cbest = output->data.int8[NSUITS+2 + i];
             c = i;
         }
     }
     int cs = s * HANDSIZE + c;
-    if (s >= NSUITS || c >= HANDSIZE) {
+    if (s == NSUITS+1 || c == HANDSIZE+1) {
+        cs = CARD_MOTION;
+    } else if (s == NSUITS || c == HANDSIZE) {
         cs = CARD_EMPTY;
     }
     tm = millis() - tm;

@@ -270,7 +270,7 @@ void Camera::clearCard(bool learn)
     }
 
     if (true) {
-        overview.init((SUITLEN+1) * WIN_WIDTH, NSUITS * WIN_HEIGHT);
+        overview.init((SUITLEN+1) * WIN_WIDTH, NSUITS * WIN_HEIGHT, 128);
     }
 }
 
@@ -278,7 +278,6 @@ Image frms[2];
 
 camera_fb_t *Camera::capture()
 {
-    unsigned long tm = millis();
     // turn on the light
     light.on(100, 1000);
 
@@ -301,21 +300,20 @@ camera_fb_t *Camera::capture()
         
         frame_tm = millis();
         frame_nr += 1;
-        dprintf("camera: capture took %dms, frame=%d", int(millis() - tm), frame_nr);
         return fb;
     }
 }
 
 bool Camera::captureCard()
 {
+    unsigned long tm = millis();
     for (int attempt = 0 ; ; attempt++) {
-        dprintf("capturing card, attempt=%d, learning=%d", attempt, learning);
+        //dprintf("capturing card, attempt=%d, learning=%d", attempt, learning);
         last_card = CARD_NULL;
         camera_fb_t *fb = cam.capture();
         if (fb == NULL) {
             return false;
         }
-
         // pick useful region
         int x = WINDOW_X;
         int y = WINDOW_Y;
@@ -336,13 +334,7 @@ bool Camera::captureCard()
                     int c = card.match(cards);
                     int r = suit.match(suits);
                     if (c >= 0 && r >= 0) {
-                        int card = c + r * 13;
-                        //dprintf("setting last_card to %d, %s", last_card, full_name(last_card));
-                        if (card == prev_card && attempt == 0) {
-                            dprintf("capture: detected duplicate %s, trying again", full_name(card));
-                            continue;
-                        }
-                        last_card = card;
+                        last_card = c + r * 13;
                     } else {
                         last_card = CARD_FAIL;
                     }
@@ -350,13 +342,23 @@ bool Camera::captureCard()
                     last_card = CARD_FAIL;
                 }
             }
-        } else {
+            if (last_card == prev_card && attempt == 0) {
+                dprintf("capture: detected duplicate %s, trying again", full_name(last_card));
+                continue;
+            }
+            if (last_card == CARD_MOTION) {
+                if (attempt < 4) {
+                    dprintf("capture: detected motion %s, trying again", full_name(last_card));
+                    continue;
+                }
+                last_card = CARD_FAIL;
+            }
+       } else {
             // learn
             //dprintf("setting last_card to learn_card=%d", learn_card);
             last_card = card_count;
         }
-        prev_card = last_card;
-        dprintf("capture: frame %d, %s card %d as %s", frame_nr, learning ? "learn" : "identify", card_count, full_name(last_card));
+        dprintf("capture: frame %d, %s card %d as %s in %dms", frame_nr, learning ? "learn" : "identify", card_count, full_name(last_card), millis() - tm);
         if (cardsuit.data != NULL) {
             int c = CARD(last_card);
             int r = SUIT(last_card);
@@ -373,6 +375,7 @@ bool Camera::captureCard()
                 overview.copy(c * latest.width, r * latest.height, latest);
             }
         }
+        prev_card = last_card;
         card_count += 1;
         return true;
     }

@@ -33,7 +33,7 @@ class Image {
     Image(const Image &other);
     Image(int width, int height);
     Image(pixel *data, int width, int height, int stride);
-    bool init(int width, int height);
+    bool init(int width, int height, pixel value = 0);
     Image crop(int x, int y, int w, int h);
 
     inline pixel *addr(int x, int y) {

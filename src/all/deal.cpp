@@ -72,6 +72,7 @@ extern const char *short_name(int cs)
     case CARD_EMPTY: return "E";
     case CARD_FAIL: return "F";
     case CARD_USED: return "U";
+    case CARD_MOTION: return "M";
     }
 
     static char short_name_buf[8];
@@ -86,6 +87,7 @@ extern const char *full_name(int cs)
     case CARD_EMPTY: return "EMPTY";
     case CARD_FAIL: return "FAIL";
     case CARD_USED: return "USED";
+    case CARD_MOTION: return "MOTION";
     }
     const char *card_name;
     int c = CARD(cs);
