@@ -9,7 +9,7 @@ extern BusMaster bus;
 bool Ejector::captureCard()
 {
     //delay(200);
-    //dprintf("captureCard learning=%d", learning);
+    //dprintf("captureCard");
     current_card = CARD_NULL;
     unsigned char buf[] = {CMD_CAPTURE};
     return bus.request(CAMERA_ADDR, buf, sizeof(buf));
@@ -65,7 +65,7 @@ bool Ejector::identifyCard(int timeout)
 }
 
 
-bool Ejector::load(bool learn)
+bool Ejector::load()
 {
     if (card.state) {
         dprintf("load: failed, card already loaded");
@@ -73,8 +73,7 @@ bool Ejector::load(bool learn)
     }
 
     // reset card state on camera
-    unsigned char buf[] = {CMD_CLEAR, (unsigned char)(learn ? 1 : 0) };
-    if (!bus.request(CAMERA_ADDR, buf, sizeof(buf), NULL, 0)) {
+    if (!bus.request(CAMERA_ADDR, (const unsigned char[]){CMD_CLEAR}, 1, NULL, 0)) {
         dprintf("load: failed to clear cards");
         return false;
     }
@@ -83,7 +82,7 @@ bool Ejector::load(bool learn)
         return false;
     }
 
-    dprintf(learn ? "load and learn" : "load");
+    dprintf("load");
     loaded_card = CARD_NULL;
     if (!identifyCard()) {
         dprintf("load: failed to identify card");
@@ -95,7 +94,6 @@ bool Ejector::load(bool learn)
     }
 
     state = EJECT_LOADING;
-    learning = learn;
     motor1.stop();
     motor2.stop();
 
@@ -113,7 +111,7 @@ bool Ejector::eject()
         return false;
     }
 
-    //dprintf(learning ? "eject and learn" : "eject");
+    //dprintf("eject");
     if (!identifyCard()) {
         dprintf("eject: failed to identify card");
         return false;

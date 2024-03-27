@@ -90,14 +90,14 @@ class Idler : IdleComponent {
     Idler() : IdleComponent("Idler", 10*1000) {
     }
     virtual void idle(unsigned long now) {
-      unsigned char res[6];
+      unsigned char res[5];
       if (!bus.request(CAMERA_ADDR, (const unsigned char []){CMD_STATUS}, 1, res, sizeof(res))) {
         dprintf("cam failed");
       }
 
       IPAddress ip = WiFi.localIP();
 
-      dprintf("%5d: dealer, detect=%d, card=%d/%d, ang=%d, wifi=%d.%d.%d.%d, cam=%d,%d, camwifi=%d.%d.%d.%d", cnt, card.state, ejector.current_card, ejector.loaded_card, int(angle.value()), ip[0], ip[1], ip[2], ip[3], res[0], res[1], res[2], res[3], res[4], res[5]);
+      dprintf("%5d: dealer, detect=%d, card=%d/%d, ang=%d, wifi=%d.%d.%d.%d, cam=%d, camwifi=%d.%d.%d.%d", cnt, card.state, ejector.current_card, ejector.loaded_card, int(angle.value()), ip[0], ip[1], ip[2], ip[3], res[0], res[1], res[2], res[3], res[4]);
       cnt += 1;
     }
 };
@@ -111,7 +111,6 @@ Idler idler;
 enum DealerState {
   DEALER_IDLE,
   DEALER_DEALING,
-  DEALER_LEARNING,
   DEALER_VERIFYING,
 };
 
@@ -133,22 +132,6 @@ class Dealer : public IdleComponent {
 
     virtual void init()
     {
-      www.add("/learn", [] (HTTP &http) {
-        if (card.state || dealer.state != DEALER_IDLE) {
-          http.header(404, "Invalid State, Card Present or Busy");
-          http.close();
-          return;
-        }
-        // load with learn=true
-        if (!ejector.load(true)) {
-          http.header(404, "Load failed");
-          http.close();
-          return;
-        }
-        http.header(200, "Learning Started");
-        http.close();
-        dealer.reset(DEALER_LEARNING);
-      });
       www.add("/verify", [] (HTTP &http) {
         if (card.state || dealer.state != DEALER_IDLE) {
           http.header(404, "Invalid State, Card Present or Busy");
@@ -235,19 +218,10 @@ class Dealer : public IdleComponent {
       return true;
     }
 
-    void collate()
-    {
-        if (state == DEALER_LEARNING && deal_count > 0) {
-          dprintf("dealer: collating %d cards", deal_count);
-          bus.request(CAMERA_ADDR, (const unsigned char []){CMD_COLLATE}, 1, NULL, 0);
-        }
-    }
-
     void deal_done()
     {
         deal_summary();
         dprintf("dealer: done after %d cards", deal_count);
-        collate();
         reset(DEALER_IDLE);
   }
 
@@ -255,7 +229,6 @@ class Dealer : public IdleComponent {
     {
         deal_summary();
         dprintf("dealer: failed after %d cards, %s", deal_count, reason);
-        collate();
         reset(DEALER_IDLE);
     }
 
@@ -299,7 +272,6 @@ class Dealer : public IdleComponent {
         case DEALER_IDLE:
           break;
         case DEALER_DEALING:
-        case DEALER_LEARNING:
         case DEALER_VERIFYING:
           if (now > last_tm + 10000) {
             dprintf("STATE=%d, %d/%d", ejector.state, ejector.current_card, ejector.loaded_card);

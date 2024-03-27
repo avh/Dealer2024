@@ -21,7 +21,6 @@ public:
     int speed = 800;
     unsigned long eject_tm;
     unsigned long card_tm;
-    bool learning = false;
     int current_card = CARD_NULL;
     int loaded_card = CARD_NULL;
     
@@ -31,7 +30,7 @@ public:
     bool captureCard();
     bool identifyCard(int timeout = 1000);
 
-    bool load(bool learn = false);
+    bool load();
     bool eject();
     virtual void idle(unsigned long now);
 };

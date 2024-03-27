@@ -38,16 +38,15 @@ BusSlave bus(CAMERA_ADDR, [] (BusSlave &bus, BusSlave::Buffer &req, BusSlave::Bu
       res[0] = cam.last_card;
       break;
     case CMD_STATUS:
-      res.resize(6);
+      res.resize(5);
       bzero(res.data(), res.size());
       res[0] = cam.last_card;
-     res[1] = cards.data != NULL && suits.data != NULL;
       if (WiFi.status() == WL_CONNECTED) {
         IPAddress ip = WiFi.localIP();
-        res[2] = ip[0];
-        res[3] = ip[1]; 
-        res[4] = ip[2];
-        res[5] = ip[3];
+        res[1] = ip[0];
+        res[2] = ip[1]; 
+        res[3] = ip[2];
+        res[4] = ip[3];
       }
       break;
     default:
@@ -57,13 +56,10 @@ BusSlave bus(CAMERA_ADDR, [] (BusSlave &bus, BusSlave::Buffer &req, BusSlave::Bu
   // command handler, blocking is allowed, but no responses
   switch (req[0]) {
     case CMD_CLEAR:
-      cam.clearCard(req[1]);
+      cam.clearCard();
       break;
     case CMD_CAPTURE:
       cam.captureCard();
-      break;
-    case CMD_COLLATE:
-      cam.collate();
       break;
     default:
       break;

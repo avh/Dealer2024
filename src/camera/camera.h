@@ -13,7 +13,6 @@ class Camera : InitComponent {
     int card_count = 0;
     volatile int last_card = CARD_NULL;
     int prev_card = CARD_NULL;
-    bool learning = false;
 
   public:
     Camera() : InitComponent("capture") {}
@@ -21,8 +20,7 @@ class Camera : InitComponent {
 
     camera_fb_t *capture();
     bool captureCard();
-    void clearCard(bool learn = false);
-    void collate();
+    void clearCard();
     int predict(const Image &img);
 };
 

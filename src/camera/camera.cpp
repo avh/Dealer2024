@@ -39,13 +39,7 @@
 #define WIN_HEIGHT               WINDOW_WIDTH
 
 Image latest;
-Image tmp;
-Image card;
-Image suit;
-Image cardsuit;
 Image overview;
-Image cards;
-Image suits;
 extern WebServer www;
 int light_delay = 200;
 
@@ -138,19 +132,6 @@ void Camera::init()
     s->set_wpc(s, 0);
     s->set_raw_gma(s, 0);
 
-    if (cards.load("/cards.jpg")) {
-        if (cards.width != CARD_WIDTH * 13 || cards.height != CARD_HEIGHT) {
-            dprintf("ERROR: cards image has wrong dimensions: %dx%d", cards.width, cards.height);
-            cards.free();
-        } else if (suits.load("/suits.jpg")) {
-            if (suits.width != SUIT_WIDTH * 4 || suits.height != SUIT_HEIGHT) {
-                dprintf("ERROR: suits image has wrong dimensions: %dx%d", suits.width, suits.height);
-                cards.free();
-                suits.free();
-            }
-        }
-    }
-
     WebServer::add("/original.jpg", [](HTTP &http) {
         camera_fb_t *fb = cam.capture();
 
@@ -184,34 +165,9 @@ void Camera::init()
         cam.captureCard();
         latest.send(http);
     }); 
-    WebServer::add("/cardsuit.jpg", [](HTTP &http) {
-        cardsuit.send(http);
-    }); 
-    WebServer::add("/card.jpg", [](HTTP &http) {
-        card.send(http);
-    }); 
-    WebServer::add("/cards.jpg", [](HTTP &http) {
-        cards.send(http);
-    }); 
-    WebServer::add("/suit.jpg", [](HTTP &http) {
-        suit.send(http);
-    }); 
-    WebServer::add("/suits.jpg", [](HTTP &http) {
-        suits.send(http);
-    }); 
     WebServer::add("/overview.jpg", [](HTTP &http) {
         overview.send(http);
     }); 
-    www.add("/commit", [] (class HTTP& http) {
-        if (cards.data != NULL) {
-            cards.save("/cards.jpg");
-        }
-        if (suits.data != NULL) {
-            suits.save("/suits.jpg");
-        }
-        http.header(200, "Committed");
-        http.close();
-    });
 
     WebServer::add("/controls", [](HTTP &http) {
         http.header(200, "Controls");
@@ -257,17 +213,12 @@ void Camera::init()
     });
 }
 
-void Camera::clearCard(bool learn)
+void Camera::clearCard()
 {
-    dprintf(learning ? "clearing cards for learning" : "clearing cards");
+    dprintf("clearing cards");
     last_card = CARD_NULL;
     prev_card = CARD_NULL;
     card_count = 0;
-    this->learning = learn;
-
-    if (learning) {
-        cardsuit.init(SUITLEN * CARDSUIT_WIDTH, NSUITS * CARDSUIT_HEIGHT);
-    }
 
     if (true) {
         overview.init((SUITLEN+1) * WIN_WIDTH, NSUITS * WIN_HEIGHT, 128);
@@ -308,7 +259,7 @@ bool Camera::captureCard()
 {
     unsigned long tm = millis();
     for (int attempt = 0 ; ; attempt++) {
-        //dprintf("capturing card, attempt=%d, learning=%d", attempt, learning);
+        //dprintf("capturing card, attempt=%d", attempt);
         last_card = CARD_NULL;
         camera_fb_t *fb = cam.capture();
         if (fb == NULL) {
@@ -322,49 +273,20 @@ bool Camera::captureCard()
         unpack_565_rot((unsigned short *)fb->buf + x + y * fb->width, fb->width, w, h, latest);
         esp_camera_fb_return(fb);
 
-        // identify card OR learn
-        if (!learning) {
-            // located card and suit
-            latest.locate(tmp, card, suit);
-
-            // try to predict card using ML
-            last_card = predict(latest);
-            if (last_card == CARD_NULL) {
-                if (cards.data != NULL) {
-                    int c = card.match(cards);
-                    int r = suit.match(suits);
-                    if (c >= 0 && r >= 0) {
-                        last_card = c + r * 13;
-                    } else {
-                        last_card = CARD_FAIL;
-                    }
-                } else {
-                    last_card = CARD_FAIL;
-                }
-            }
-            if (last_card == prev_card && attempt == 0) {
-                dprintf("capture: detected duplicate %s, trying again", full_name(last_card));
+        // predict card using ML
+        last_card = predict(latest);
+        if (last_card == prev_card && attempt == 0) {
+            dprintf("capture: detected duplicate %s, trying again", full_name(last_card));
+            continue;
+        }
+        if (last_card == CARD_MOTION) {
+            if (attempt < 4) {
+                dprintf("capture: detected motion %s, trying again", full_name(last_card));
                 continue;
             }
-            if (last_card == CARD_MOTION) {
-                if (attempt < 4) {
-                    dprintf("capture: detected motion %s, trying again", full_name(last_card));
-                    continue;
-                }
-                last_card = CARD_FAIL;
-            }
-       } else {
-            // learn
-            //dprintf("setting last_card to learn_card=%d", learn_card);
-            last_card = card_count;
+            last_card = CARD_FAIL;
         }
-        dprintf("capture: frame %d, %s card %d as %s in %dms", frame_nr, learning ? "learn" : "identify", card_count, full_name(last_card), millis() - tm);
-        if (cardsuit.data != NULL) {
-            int c = CARD(last_card);
-            int r = SUIT(last_card);
-            cardsuit.copy(c * CARDSUIT_WIDTH, r * CARDSUIT_HEIGHT, card);
-            cardsuit.copy(c * CARDSUIT_WIDTH, r * CARDSUIT_HEIGHT + CARD_HEIGHT + 2, suit);
-        }
+        dprintf("capture: frame %d, identify card %d as %s in %dms", frame_nr, card_count, full_name(last_card), millis() - tm);
         if (overview.data != NULL) {
             if (card_count == 52) {
                 overview.copy(13 * latest.width, 3 * latest.height, latest);
@@ -378,39 +300,5 @@ bool Camera::captureCard()
         prev_card = last_card;
         card_count += 1;
         return true;
-    }
-}
-
-void Camera::collate()
-{
-    dprintf("collate");
-    if (cardsuit.data != NULL) {
-        // cards
-        cards.init(HANDSIZE * CARD_WIDTH, CARD_HEIGHT);
-        for (int y = 0 ; y < cards.height; y++) {
-            for (int x = 0 ; x < cards.width ; x++) {
-                unsigned long sum = 0;
-                for (int i = 0 ; i < NSUITS ; i++) {
-                    sum += *cardsuit.addr(x, y + i * CARDSUIT_HEIGHT);
-                }
-                *cards.addr(x, y) = sum / NSUITS;
-            }
-        }
-        dprintf("update cards");
-
-        // suits
-        suits.init(NSUITS * SUIT_WIDTH, SUIT_HEIGHT);
-        for (int s = 0 ; s < 4 ; s++) {
-            for (int y = 0 ; y < SUIT_HEIGHT; y++) {
-                for (int x = 0 ; x < SUIT_WIDTH ; x++) {
-                    unsigned long sum = 0;
-                    for (int i = 0 ; i < SUITLEN ; i++) {
-                        sum += *cardsuit.addr(x + i * CARDSUIT_WIDTH, y + s * CARDSUIT_HEIGHT + CARD_HEIGHT + 2);
-                    }
-                    *suits.addr(x + s * SUIT_WIDTH, y) = sum / SUITLEN;
-                }
-            }
-        }
-        dprintf("update suits");
     }
 }

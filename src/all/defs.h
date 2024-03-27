@@ -40,7 +40,6 @@
 
 #define CAMERA_ADDR         0x1A
 #define CMD_CAPTURE         0xFE
-#define CMD_COLLATE         0xFD
 #define CMD_IDENTIFY        0xFC
 #define CMD_CLEAR           0xFB
 #define CMD_STATUS          0xFA
