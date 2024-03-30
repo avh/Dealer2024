@@ -10,8 +10,8 @@
 
 WebServer www;
 Storage storage;
-LEDArray light("camera-light", 8, 200);
-Camera cam;
+LightArray<LIGHT_PIN> light("camera-light", 8, 100);
+Camera cam(light);;
 extern Image cards;
 extern Image suits;
 

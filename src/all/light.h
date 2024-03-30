@@ -7,6 +7,7 @@
 
 class LEDArray : public IdleComponent {
   public:
+    int pin;
     int nleds;
     int brightness;
     CRGB *leds;
@@ -17,10 +18,6 @@ class LEDArray : public IdleComponent {
   public:
     LEDArray(const char *name, int nleds, int brightness = 255) : 
         IdleComponent(name, 5000), nleds(nleds), brightness(brightness), leds(new CRGB[nleds]) {
-    }
-    virtual void init() {
-        FastLED.addLeds<WS2812, LIGHT_PIN>(leds, nleds);
-        off();
     }
 
     void setRGB(int r, int g, int b) {
@@ -50,5 +47,17 @@ class LEDArray : public IdleComponent {
         on_tm = 0;
         off_tm = 0;
         value = false;
+    }
+};
+
+template<int PIN>
+class LightArray : public LEDArray 
+{
+  public:
+    LightArray(const char *name, int nleds, int brightness = 255) : LEDArray(name, nleds, brightness) {
+    }
+    virtual void init() {
+        FastLED.addLeds<WS2812, PIN>(leds, nleds);
+        off();
     }
 };

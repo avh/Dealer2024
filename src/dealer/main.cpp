@@ -6,6 +6,7 @@
 #include "motor.h"
 #include "angle.h"
 #include "sensor.h"
+#include "light.h"
 #include "eject.h"
 #include "storage.h"
 #include "webserver.h"
@@ -20,6 +21,7 @@ Motor rotator("Rotator", MR_PIN2, MR_PIN1, 400, 200);
 AngleSensor angle("Angle", rotator);
 IRSensor card("Card", CARD_PIN, HIGH);
 Ejector ejector("Ejector");
+LightArray<RING_PIN> ring("Ring", 2*9*16, 50);
 WebServer www;
 
 // REMIND: Power Button
@@ -344,8 +346,13 @@ Dealer dealer;
 
 void setup() 
 {
-
+  // first turn on the power
+  pinMode(POWER_PIN, OUTPUT);
+  digitalWrite(POWER_PIN, HIGH);
+  pinMode(M_ENABLE, OUTPUT);
   init_all("Dealer");
+  // lastly, enable motors
+  digitalWrite(M_ENABLE, HIGH);
 }
 
 void loop() 

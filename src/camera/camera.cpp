@@ -31,8 +31,8 @@
 //#define convert565(v) (r565(v) + b565(v) + (g565(v)<<1))
 #define convert565(v) ((b565(v) + g565(v))>>1)
 
-#define WINDOW_X                 50
-#define WINDOW_Y                 85
+#define WINDOW_X                 60
+#define WINDOW_Y                 80
 #define WINDOW_WIDTH             120
 #define WINDOW_HEIGHT            50
 #define WIN_WIDTH                WINDOW_HEIGHT
@@ -187,7 +187,7 @@ void Camera::init()
                 s->set_saturation(s, atoi(value.c_str()));
                 http.printf("set saturation to %d\n", atoi(value.c_str()));
             } else if (key == "light") {
-                light.brightness = atoi(value.c_str());
+                cam.light.brightness = atoi(value.c_str());
                 http.printf("set light to %d\n", atoi(value.c_str()));
             } else if (key == "agc") {
                 s->set_agc_gain(s, atoi(value.c_str()));
@@ -207,6 +207,9 @@ void Camera::init()
             } else if (key == "light_delay") {
                 light_delay = atoi(value.c_str());
                 http.printf("set light_delay to %d\n", atoi(value.c_str()));
+            } else if (key == "light") {
+                cam.light.brightness = atoi(value.c_str());
+                http.printf("set light to %d\n", atoi(value.c_str()));
             }
         } 
         http.close();

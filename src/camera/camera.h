@@ -8,6 +8,7 @@
 
 class Camera : InitComponent {
   public:
+    LEDArray &light;
     int frame_nr = 0;
     unsigned long frame_tm = 0;
     int card_count = 0;
@@ -15,7 +16,7 @@ class Camera : InitComponent {
     int prev_card = CARD_NULL;
 
   public:
-    Camera() : InitComponent("capture") {}
+    Camera(LEDArray &light) : InitComponent("capture"), light(light) {}
     virtual void init();
 
     camera_fb_t *capture();
@@ -24,5 +25,4 @@ class Camera : InitComponent {
     int predict(const Image &img);
 };
 
-extern LEDArray light;
 extern Camera cam;

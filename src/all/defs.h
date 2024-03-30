@@ -11,7 +11,7 @@
 //
 #define POWER_PIN   2
 #define BUTTON_PIN  3
-#define CARD_PIN    4
+#define M_ENABLE    4
 #define M1_PIN1     5
 #define M1_PIN2     6
 #define M2_PIN1     7
@@ -22,11 +22,8 @@
 #define FN_PIN2     12
 #define BUZZER_PIN  13
 
-#define LED_WIFI      A7
-#define LED_POWER     A6
-#define LED_LOADED    A3
-#define LED_ROTATING  A2
-#define LED_EJECTING  A1
+#define CARD_PIN    A7
+#define RING_PIN    GPIO_NUM_13
 
 //
 // Camera Pins
