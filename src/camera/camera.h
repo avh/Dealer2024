@@ -8,6 +8,7 @@
 
 class Camera : InitComponent {
   public:
+    bool active = false;
     LEDArray &light;
     int frame_nr = 0;
     unsigned long frame_tm = 0;

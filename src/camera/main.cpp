@@ -3,14 +3,12 @@
 #include "util.h"
 #include "bus.h"
 #include "light.h"
-#include "storage.h"
 #include "image.h"
 #include "camera.h"
 #include "webserver.h"
 
 WebServer www;
-Storage storage;
-LightArray<LIGHT_PIN> light("camera-light", 8, 100);
+LightArray<LIGHT_PIN> light("camera-light", 8, 80);
 Camera cam(light);;
 extern Image cards;
 extern Image suits;
@@ -23,7 +21,7 @@ class Idler : public IdleComponent {
     }
 
     virtual void idle(unsigned long now) {
-      dprintf("%5d: %s, wifi=%d, store=%d, light=%d, frame=%d", i++, name, www.connected, storage.mounted, light.value, cam.frame_nr);
+      dprintf("%5d: %s, wifi=%d, cam=%d, light=%d, frame=%d", i++, name, www.connected, cam.active, light.value, cam.frame_nr);
     }
 } idler;
 

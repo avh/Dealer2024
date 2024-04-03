@@ -17,7 +17,7 @@ class AngleSensor : public IdleComponent {
     bool active = true;
 
   public:
-    AngleSensor(const char *name, Motor &rotator) : IdleComponent(name, 1000), rotator(rotator) {}
+    AngleSensor(const char *name, Motor &rotator) : IdleComponent(name, 10), rotator(rotator) {}
 
     void init();
 

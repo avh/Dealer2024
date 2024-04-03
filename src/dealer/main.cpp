@@ -21,7 +21,7 @@ Motor rotator("Rotator", MR_PIN2, MR_PIN1, 400, 200);
 AngleSensor angle("Angle", rotator);
 IRSensor card("Card", CARD_PIN, HIGH);
 Ejector ejector("Ejector");
-LightArray<RING_PIN> ring("Ring", 2*9*16, 50);
+LightRing<RING_PIN> ring("Ring", 9, 16, 75, 2);
 WebServer www;
 
 // REMIND: Power Button
@@ -84,28 +84,6 @@ class Button : public IdleComponent {
 };
 
 Button button("Button", BUTTON_PIN, HIGH);
-
-class Idler : IdleComponent {
-  public:
-    int cnt = 0;
-  public:
-    Idler() : IdleComponent("Idler", 10*1000) {
-    }
-    virtual void idle(unsigned long now) {
-      unsigned char res[5];
-      if (!bus.request(CAMERA_ADDR, (const unsigned char []){CMD_STATUS}, 1, res, sizeof(res))) {
-        dprintf("cam failed");
-      }
-
-      IPAddress ip = WiFi.localIP();
-
-      dprintf("%5d: dealer, detect=%d, card=%d/%d, ang=%d, wifi=%d.%d.%d.%d, cam=%d, camwifi=%d.%d.%d.%d", cnt, card.state, ejector.current_card, ejector.loaded_card, int(angle.value()), ip[0], ip[1], ip[2], ip[3], res[0], res[1], res[2], res[3], res[4]);
-      cnt += 1;
-    }
-};
-
-
-Idler idler;
 
 //
 // Dealer
@@ -341,6 +319,111 @@ class Dealer : public IdleComponent {
 Dealer dealer;
 
 //
+// Animation
+//
+class LightAnimation : public IdleComponent {
+  public:
+    unsigned long eject_tm = 0;
+    bool ejecting = false;
+    unsigned long status_tm = 0;
+    unsigned long report_tm = 0;
+    int report_cnt = 0;
+    unsigned char cam_res[5];
+    bool cam_connected = false;
+    unsigned long active_tm = 0;
+  public:
+    LightAnimation() : IdleComponent("LightAnimation", 30) 
+    {
+        ring.set_brightness(10, 1000);
+    }
+    virtual void idle(unsigned long now) 
+    {
+        // check and report status
+        if (status_tm + 1000 <= now) {
+            status_tm = now;
+            cam_connected = bus.request(CAMERA_ADDR, (const unsigned char []){CMD_STATUS}, 1, cam_res, sizeof(cam_res));
+
+            // report status
+            if (report_tm + 10*1000 <= now) {
+                report_tm = now;
+                IPAddress ip = WiFi.localIP();
+
+                dprintf("%5d: dealer, www=%d, detect=%d, card=%d/%d, ang=%d, wifi=%d.%d.%d.%d, cam=%d, camwifi=%d.%d.%d.%d", report_cnt, www.connected, card.state, ejector.current_card, ejector.loaded_card, int(angle.value()), ip[0], ip[1], ip[2], ip[3], cam_res[0], cam_res[1], cam_res[2], cam_res[3], cam_res[4]);
+                report_cnt += 1;
+            }
+      }
+
+      // check active state
+      if (button.state || motor1.current_speed != 0 || motor2.current_speed != 0) {
+          if (active_tm == 0) {
+              ring.set_brightness(100, 500);
+          }
+          active_tm = now;
+      } else if (active_tm != 0 && active_tm + 2*1000 < now) {
+          active_tm = 0;
+          ring.set_brightness(5, 5*1000);
+      }
+
+      // start/stop eject animation
+      if (motor2.current_speed > 0) {
+          if (!ejecting) {
+              eject_tm = now;
+              ejecting = true;
+          }
+      } else {
+          ejecting = false;
+          eject_tm = 0;
+      }
+
+      ring.clear();
+      int a = round(angle.value());
+      int b = ring.bearing(360 - a);
+      // north
+      ring.setOne(b, 0, 0, 100);
+      // south
+      ring.setOne(b + ring.width + ring.height, 100, 100, 0);
+
+      // eject
+      if (eject_tm > 0) {
+          int i = ((now - eject_tm)  * ring.height) / 400;
+          if (i >= ring.height) {
+              eject_tm = 0;
+          } else {
+              ring.setOne(ring.width + ring.height - i - 1, 50, 50, 50);
+              ring.setOne(ring.width*2 + ring.height + i, 50, 50, 50);
+          }
+      }
+
+      // camera
+      if (cam_connected) {
+          ring.setOne(0, 0, 50, 0);
+      } else {
+          ring.setOne(0, 50, 0, 0);
+      }
+
+      // button
+      if (button.state) {
+          ring.setOne(-2, 100, 0, 0);
+          ring.setOne(ring.width+1, 100, 0, 0);
+      }
+
+      // wifi
+      if (www.connected) {
+          ring.setOne(ring.width-1, 0, 50, 0);
+      } else {
+          ring.setOne(ring.width-1, 50, 0, 0);
+      }
+      if (card.state) {
+          ring.setOne(ring.width-2, 50, 0, 0);
+      }
+      
+      // show
+      ring.show();
+    }
+};
+LightAnimation animation;
+
+//
 // Main Program
 //
 
@@ -350,8 +433,8 @@ void setup()
   pinMode(POWER_PIN, OUTPUT);
   digitalWrite(POWER_PIN, HIGH);
   pinMode(M_ENABLE, OUTPUT);
-  init_all("Dealer");
-  // lastly, enable motors
+  digitalWrite(M_ENABLE, LOW);
+  init_all("Dealer2024");
   digitalWrite(M_ENABLE, HIGH);
 }
 

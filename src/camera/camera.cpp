@@ -31,8 +31,8 @@
 //#define convert565(v) (r565(v) + b565(v) + (g565(v)<<1))
 #define convert565(v) ((b565(v) + g565(v))>>1)
 
-#define WINDOW_X                 60
-#define WINDOW_Y                 80
+#define WINDOW_X                 55
+#define WINDOW_Y                 85
 #define WINDOW_WIDTH             120
 #define WINDOW_HEIGHT            50
 #define WIN_WIDTH                WINDOW_HEIGHT
@@ -121,7 +121,7 @@ void Camera::init()
     s->set_saturation(s, 0);
     s->set_contrast(s, 0);
     s->set_agc_gain(s, 0);
-    s->set_aec_value(s, 20);
+    s->set_aec_value(s, 40);
     s->set_whitebal(s, 0);
     s->set_awb_gain(s, 0);
 
@@ -131,6 +131,7 @@ void Camera::init()
     s->set_bpc(s, 0);
     s->set_wpc(s, 0);
     s->set_raw_gma(s, 0);
+    active = true;
 
     WebServer::add("/original.jpg", [](HTTP &http) {
         camera_fb_t *fb = cam.capture();
@@ -228,6 +229,7 @@ void Camera::clearCard()
     }
 }
 
+// REMIND: remove me
 Image frms[2];
 
 camera_fb_t *Camera::capture()
@@ -278,7 +280,7 @@ bool Camera::captureCard()
 
         // predict card using ML
         last_card = predict(latest);
-        if (last_card == prev_card && attempt < 4) {
+        if (last_card == prev_card && last_card < 52 && attempt < 4) {
             dprintf("capture: detected duplicate %s, trying again", full_name(last_card));
             continue;
         }

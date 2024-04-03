@@ -306,6 +306,9 @@ bool Image::same(Image &other)
   if (width != other.width || height != other.height) {
     return false;
   }
+  if (data == NULL || other.data == NULL) {
+    return false;
+  }
   for (int r = 0 ; r < height ; r++) {
     const pixel *p1 = addr(0, r);
     const pixel *p2 = other.addr(0, r);
