@@ -10,6 +10,7 @@
 #include "eject.h"
 #include "storage.h"
 #include "webserver.h"
+#include "pitches.h"
 
 // Components
 Storage storage;
@@ -203,13 +204,15 @@ class Dealer : public IdleComponent {
         deal_summary();
         dprintf("dealer: done after %d cards", deal_count);
         reset(DEALER_IDLE);
-  }
+        tone(BUZZER_PIN, NOTE_E5, 500);
+ }
 
     void deal_failed(const char *reason)
     {
         deal_summary();
         dprintf("dealer: failed after %d cards, %s", deal_count, reason);
         reset(DEALER_IDLE);
+        tone(BUZZER_PIN, NOTE_A4, 500);
     }
 
     void deal_summary()
@@ -285,6 +288,7 @@ class Dealer : public IdleComponent {
                     if (card_hist[deal_count] == CARD_NULL) {
                       if (card_count[ejector.loaded_card] > 0) {
                         dprintf("dealer: duplicate card %d, %s", ejector.loaded_card, full_name(ejector.loaded_card));
+                        tone(BUZZER_PIN, NOTE_E5, 100);
                       }
                       card_count[ejector.loaded_card] += 1;
                       card_hist[deal_count] = ejector.loaded_card;
@@ -438,10 +442,10 @@ void setup()
   pinMode(M_ENABLE, OUTPUT);
   digitalWrite(M_ENABLE, LOW);
   pinMode(BUZZER_PIN, OUTPUT);
-  tone(BUZZER_PIN, 523, 250);
+  tone(BUZZER_PIN, NOTE_C5, 250);
   init_all("Dealer2024");
   digitalWrite(M_ENABLE, HIGH);
-  tone(BUZZER_PIN, 1047, 500);
+  tone(BUZZER_PIN, NOTE_C6, 250);
 }
 
 void loop() 
