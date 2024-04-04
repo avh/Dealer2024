@@ -2,10 +2,6 @@
 //
 #pragma once
 
-#define USE_SERIAL          1
-#define SERIAL_SPEED        115200
-#define USE_WIFI            1
-
 //
 // Dealer Pins
 //

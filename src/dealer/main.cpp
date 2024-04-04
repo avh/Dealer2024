@@ -328,7 +328,7 @@ class LightAnimation : public IdleComponent {
     unsigned long status_tm = 0;
     unsigned long report_tm = 0;
     int report_cnt = 0;
-    unsigned char cam_res[5];
+    unsigned char cam_res[6];
     bool cam_connected = false;
     unsigned long active_tm = 0;
   public:
@@ -348,7 +348,7 @@ class LightAnimation : public IdleComponent {
                 report_tm = now;
                 IPAddress ip = WiFi.localIP();
 
-                dprintf("%5d: dealer, www=%d, detect=%d, card=%d/%d, ang=%d, wifi=%d.%d.%d.%d, cam=%d, camwifi=%d.%d.%d.%d", report_cnt, www.connected, card.state, ejector.current_card, ejector.loaded_card, int(angle.value()), ip[0], ip[1], ip[2], ip[3], cam_res[0], cam_res[1], cam_res[2], cam_res[3], cam_res[4]);
+                dprintf("%5d: dealer, www=%d, detect=%d, card=%d/%d, ang=%d, wifi=%d.%d.%d.%d, cam=%d, light=%d, camwifi=%d.%d.%d.%d", report_cnt, www.connected, card.state, ejector.current_card, ejector.loaded_card, int(angle.value()), ip[0], ip[1], ip[2], ip[3], cam_res[0], cam_res[1], cam_res[2], cam_res[3], cam_res[4], cam_res[5]);
                 report_cnt += 1;
             }
       }
@@ -397,6 +397,9 @@ class LightAnimation : public IdleComponent {
       // camera
       if (cam_connected) {
           ring.setOne(0, 0, 50, 0);
+          if (cam_res[1] != 0) {
+              ring.setOne(1, 50, 0, 0);
+          }
       } else {
           ring.setOne(0, 50, 0, 0);
       }
@@ -434,8 +437,11 @@ void setup()
   digitalWrite(POWER_PIN, HIGH);
   pinMode(M_ENABLE, OUTPUT);
   digitalWrite(M_ENABLE, LOW);
+  pinMode(BUZZER_PIN, OUTPUT);
+  tone(BUZZER_PIN, 523, 250);
   init_all("Dealer2024");
   digitalWrite(M_ENABLE, HIGH);
+  tone(BUZZER_PIN, 1047, 500);
 }
 
 void loop() 

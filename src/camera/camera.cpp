@@ -31,8 +31,8 @@
 //#define convert565(v) (r565(v) + b565(v) + (g565(v)<<1))
 #define convert565(v) ((b565(v) + g565(v))>>1)
 
-#define WINDOW_X                 55
-#define WINDOW_Y                 85
+#define WINDOW_X                 52
+#define WINDOW_Y                 88
 #define WINDOW_WIDTH             120
 #define WINDOW_HEIGHT            50
 #define WIN_WIDTH                WINDOW_HEIGHT
@@ -188,7 +188,7 @@ void Camera::init()
                 s->set_saturation(s, atoi(value.c_str()));
                 http.printf("set saturation to %d\n", atoi(value.c_str()));
             } else if (key == "light") {
-                cam.light.brightness = atoi(value.c_str());
+                cam.light.brightness = atoi(value.c_str()) * 255 / 100;
                 http.printf("set light to %d\n", atoi(value.c_str()));
             } else if (key == "agc") {
                 s->set_agc_gain(s, atoi(value.c_str()));
@@ -237,7 +237,7 @@ camera_fb_t *Camera::capture()
     // turn on the light
     light.on(100, 1000);
 
-    // wait for the light to come on
+    // wait for the light to come on, and settle the camera
     while (millis() < light.on_tm + light_delay) {
         delay(1);
     }
@@ -291,7 +291,12 @@ bool Camera::captureCard()
         if (last_card == CARD_MOTION) {
             last_card = CARD_FAIL;
         }
-        dprintf("capture: frame %d, identify card %d as %s in %dms", frame_nr, card_count, full_name(last_card), millis() - tm);
+        if (last_card == CARD_EMPTY) {
+            dprintf("capture: frame %d, hopper empty", frame_nr);
+            light.off();
+        } else {
+            dprintf("capture: frame %d, identify card %d as %s in %dms", frame_nr, card_count, full_name(last_card), millis() - tm);
+        }
         if (overview.data != NULL) {
             if (card_count == 52) {
                 overview.copy(13 * latest.width, 3 * latest.height, latest);

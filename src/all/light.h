@@ -60,9 +60,10 @@ class LEDArray : public IdleComponent {
     }
 
     virtual void idle(unsigned long now) {
-        if (brightness != brightness_target) {
+        if (brightness_tm != 0 && brightness != brightness_target) {
             if (now >= brightness_tm) {
                 brightness = brightness_target;
+                brightness_tm = 0;
             } else {
                 brightness = max(0, min(brightness + brightness_step, 255));
             }
@@ -70,7 +71,7 @@ class LEDArray : public IdleComponent {
         if (off_tm > 0 && now >= off_tm) {
             off();
         }
-        if (off_tm == 0 && brightness == brightness_target) {
+        if (off_tm == 0 && brightness_tm == 0) {
             interval = 1000;
         }
     }
@@ -92,6 +93,7 @@ class LEDArray : public IdleComponent {
         on_tm = 0;
         off_tm = 0;
         value = false;
+        interval = 1000;
     }
 };
 

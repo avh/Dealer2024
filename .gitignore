@@ -1,0 +1,10 @@
+.pio
+.DS_Store
+*.onnx
+*.tf
+*.tflite
+data
+bad
+TMP*
+.vscode
+src/extra
