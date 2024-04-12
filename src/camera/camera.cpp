@@ -31,8 +31,8 @@
 //#define convert565(v) (r565(v) + b565(v) + (g565(v)<<1))
 #define convert565(v) ((b565(v) + g565(v))>>1)
 
-#define WINDOW_X                 52
-#define WINDOW_Y                 88
+#define WINDOW_X                 64
+#define WINDOW_Y                 75
 #define WINDOW_WIDTH             120
 #define WINDOW_HEIGHT            50
 #define WIN_WIDTH                WINDOW_HEIGHT
@@ -121,7 +121,7 @@ void Camera::init()
     s->set_saturation(s, 0);
     s->set_contrast(s, 0);
     s->set_agc_gain(s, 0);
-    s->set_aec_value(s, 40);
+    s->set_aec_value(s, 20);
     s->set_whitebal(s, 0);
     s->set_awb_gain(s, 0);
 
@@ -248,6 +248,7 @@ camera_fb_t *Camera::capture()
             dprintf("camera: esp_camera_fb_get failed");
             return NULL;
         }
+        
         unpack_565_rot((unsigned short *)fb->buf + WINDOW_X + WINDOW_Y * fb->width, fb->width, WINDOW_WIDTH, WINDOW_HEIGHT, frms[frame_nr%2]);
         if (frms[0].same(frms[1])) {
             dprintf("frame the same, retrying");

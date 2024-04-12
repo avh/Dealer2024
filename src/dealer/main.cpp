@@ -18,11 +18,12 @@ BusMaster bus;
 Motor motor1("Motor1", M1_PIN1, M1_PIN2, 400, 5000);
 Motor motor2("Motor2", M2_PIN1, M2_PIN2, 400, 5000);
 //Motor fan("Fan", FN_PIN1, FN_PIN2, 100, 100000, 2000);
-Motor rotator("Rotator", MR_PIN2, MR_PIN1, 400, 200);
+Motor rotator("Rotator", MR_PIN1, MR_PIN2, 400, 200);
 AngleSensor angle("Angle", rotator);
 IRSensor card("Card", CARD_PIN, HIGH);
 Ejector ejector("Ejector");
-LightRing<RING_PIN> ring("Ring", 9, 16, 75, 2);
+//LightRing<RING_PIN> ring("Ring", 9, 16, 75, 2);
+LightRing<RING_PIN> ring("Ring", 21, 36, 50, 5);
 WebServer www;
 
 // REMIND: Power Button
@@ -39,7 +40,7 @@ class Button : public IdleComponent {
     Button(const char *name, int but, int active_state = LOW) : IdleComponent(name), but(but), active_state(active_state) {
     }
     virtual void init() {
-      pinMode(but, active_state == LOW ? INPUT_PULLDOWN : INPUT_PULLUP);
+      pinMode(but, active_state == LOW ? INPUT_PULLUP : INPUT_PULLDOWN);
     }
     bool down() {
       return digitalRead(but) == active_state;
@@ -84,7 +85,7 @@ class Button : public IdleComponent {
     virtual void released() {}
 };
 
-Button button("Button", BUTTON_PIN, HIGH);
+Button button("Button", BUTTON_PIN, LOW);
 
 //
 // Dealer
@@ -96,7 +97,6 @@ enum DealerState {
 };
 
 extern class Dealer dealer;
-
 
 class Dealer : public IdleComponent {
   public:
@@ -380,12 +380,14 @@ class LightAnimation : public IdleComponent {
       }
 
       ring.clear();
-      int a = round(angle.value());
-      int b = ring.bearing(360 - a);
-      // north
-      ring.setOne(b, 0, 0, 100);
-      // south
-      ring.setOne(b + ring.width + ring.height, 100, 100, 0);
+      float a = angle.value();
+      if (int(a) != 360) {
+        int b = ring.bearing(360 - round(a));
+        // north
+        ring.setOne(b, 0, 0, 100);
+        // south
+        ring.setOne(b + ring.width + ring.height, 100, 100, 0);
+      }
 
       // eject
       if (eject_tm > 0) {
@@ -397,31 +399,32 @@ class LightAnimation : public IdleComponent {
               ring.setOne(ring.width*2 + ring.height + i, 50, 50, 50);
           }
       }
+      int off = 3;
 
       // camera
       if (cam_connected) {
-          ring.setOne(0, 0, 50, 0);
+          ring.setOne(off, 0, 50, 0);
           if (cam_res[1] != 0) {
-              ring.setOne(1, 50, 0, 0);
+              ring.setOne(off + 2, 50, 0, 0);
           }
       } else {
-          ring.setOne(0, 50, 0, 0);
+          ring.setOne(off, 50, 0, 0);
       }
 
       // button
       if (button.state) {
-          ring.setOne(-2, 100, 0, 0);
-          ring.setOne(ring.width+1, 100, 0, 0);
+          ring.setOne(-off, 100, 0, 0);
+          ring.setOne(ring.width+off, 100, 0, 0);
       }
 
       // wifi
       if (www.connected) {
-          ring.setOne(ring.width-1, 0, 50, 0);
+          ring.setOne(ring.width-1-off, 0, 50, 0);
       } else {
-          ring.setOne(ring.width-1, 50, 0, 0);
+          ring.setOne(ring.width-1-off, 50, 0, 0);
       }
       if (card.state) {
-          ring.setOne(ring.width-2, 50, 0, 0);
+          ring.setOne(ring.width-1-off-2, 50, 0, 0);
       }
       
       // show
@@ -429,6 +432,40 @@ class LightAnimation : public IdleComponent {
     }
 };
 LightAnimation animation;
+
+void calibrate_motor(int i, Motor &motor)
+{
+    dprintf("test %d, %s", i, motor.name);
+    motor.set_speed(100);
+    for (int j = 0 ; j < 1000 ; j++) {
+      motor.idle(millis());
+      delay(1);
+    }
+    motor.set_speed(0);
+    for (int j = 0 ; j < 1000 ; j++) {
+      motor.idle(millis());
+      delay(1);
+    }
+    motor.set_speed(-25);
+    for (int j = 0 ; j < 500 ; j++) {
+      motor.idle(millis());
+      delay(1);
+    }
+    motor.set_speed(0);
+    for (int j = 0 ; j < 1000 ; j++) {
+      motor.idle(millis());
+      delay(1);
+    }
+}
+
+void calibrate_motors()
+{
+  for (int i = 0 ; ; i++) {
+    calibrate_motor(i, motor1);
+    calibrate_motor(i, motor2);
+    calibrate_motor(i, rotator);
+  }
+}
 
 //
 // Main Program
@@ -443,9 +480,11 @@ void setup()
   digitalWrite(M_ENABLE, LOW);
   pinMode(BUZZER_PIN, OUTPUT);
   tone(BUZZER_PIN, NOTE_C5, 250);
+
   init_all("Dealer2024");
   digitalWrite(M_ENABLE, HIGH);
   tone(BUZZER_PIN, NOTE_C6, 250);
+
 }
 
 void loop() 

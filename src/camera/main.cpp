@@ -8,7 +8,7 @@
 #include "webserver.h"
 
 WebServer www;
-LightArray<LIGHT_PIN> light("camera-light", 8, 20);
+LightArray<LIGHT_PIN> light("camera-light", 8, 60);
 Camera cam(light);;
 extern Image cards;
 extern Image suits;

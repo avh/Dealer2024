@@ -138,7 +138,7 @@ template<int PIN>
 class LightRing : public LEDRing
 {
   public:
-    LightRing(const char *name, int width, int height, int offset, int brightness = 255) : LEDRing(name, width, height, offset, brightness) {
+    LightRing(const char *name, int width, int height, int brightness = 255, int offset = 0) : LEDRing(name, width, height, brightness, offset) {
     }
     virtual void init() {
         FastLED.addLeds<WS2812, PIN>(leds, nleds);

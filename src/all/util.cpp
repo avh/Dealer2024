@@ -72,7 +72,7 @@ void init_all(const char *name)
 
   Serial.begin(SERIAL_SPEED);
   if (verbose) {
-    for (int tm = millis() ; millis() < tm + 1000 && !Serial ; delay(1));
+    for (int tm = millis() ; millis() < tm + SERIAL_TIMEOUT && !Serial ; delay(1));
     // REMIND
     delay(2000);
     dprintf("\n[starting %s]\n", name);

@@ -43,7 +43,7 @@ class PWM : public InitComponent {
     }
 };
 
-class Motor : IdleComponent {
+class Motor : public IdleComponent {
   public:
     PWM pwm1;
     PWM pwm2;
