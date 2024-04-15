@@ -11,6 +11,7 @@
 #include "storage.h"
 #include "webserver.h"
 #include "pitches.h"
+#include "button.h"
 
 // Components
 Storage storage;
@@ -25,67 +26,74 @@ Ejector ejector("Ejector");
 //LightRing<RING_PIN> ring("Ring", 9, 16, 75, 2);
 LightRing<RING_PIN> ring("Ring", 21, 36, 50, 5);
 WebServer www;
+unsigned long active_tm = 0;
+int active_state = 0;
 
-// REMIND: Power Button
-class Button : public IdleComponent {
+enum ActionEnum {
+  ACTION_VERIFY,
+  ACTION_ONE_CARD,
+  ACTION_COUNT,
+} current_action;
+
+extern void action();
+
+void powerOff(const char *reason, bool silent = false)
+{
+    dprintf("Powering off, %s", reason);
+    if (!silent) {
+      tone(BUZZER_PIN, NOTE_C6, 250);
+      delay(250);
+      tone(BUZZER_PIN, NOTE_C5, 250);
+      delay(250);
+    }
+    digitalWrite(POWER_PIN, LOW);
+    digitalWrite(M_ENABLE, LOW);
+    active_tm = 0;
+    active_state = 3;
+}
+void powerOn()
+{
+    dprintf("Powering back on");
+    tone(BUZZER_PIN, NOTE_C5, 250);
+    delay(250);
+    tone(BUZZER_PIN, NOTE_C6, 250);
+    digitalWrite(POWER_PIN, HIGH);
+    digitalWrite(M_ENABLE, HIGH);
+    active_tm = millis();
+    active_state = 0;
+}
+
+//
+// Power Button
+//
+class PowerButton : public Button {
   public:
-    int but;
-    int active_state = LOW;
-    unsigned long last_tm = 0;
-    bool state = false;
-    int clicks = 0;
-    int duration = 0;
-    int tmp_card = 0;
-  public:
-    Button(const char *name, int but, int active_state = LOW) : IdleComponent(name), but(but), active_state(active_state) {
+    PowerButton(int pin) : Button("Button", pin, LOW) {
     }
-    virtual void init() {
-      pinMode(but, active_state == LOW ? INPUT_PULLUP : INPUT_PULLDOWN);
-    }
-    bool down() {
-      return digitalRead(but) == active_state;
-    }
-    virtual void idle(unsigned long now) {
-      if (down()) {
-        if (!state) {
-          state = true;
-          duration = now - last_tm;
-          if (duration < 500) {
-            clicks += 1;
-          } else {
-            clicks = 1;
-          }
-          last_tm = now;
-          dprintf("Button %s pressed, clicks=%d", name, clicks);
-          pressed();
-        } else if (now - last_tm > 3000) {
-          duration = now - last_tm;
-          last_tm = now;
-          dprintf("Button %s hold, duration=%dms", name, duration);
-          hold();
+    virtual void pressed(int count) 
+    {
+        active_tm = millis();
+
+        if (digitalRead(POWER_PIN) == LOW) {
+            powerOn();
+            return;
         }
-      } else {
-        if (state) {
-          state = false;
-          duration = now - last_tm;
-          last_tm = now;
-          dprintf("Button %s released, duration=%dms", name, duration);
-          released();
+        if (count > 1) {
+            current_action = ActionEnum((current_action + 1) % int(ACTION_COUNT));
+            tone(BUZZER_PIN, NOTE_C7, 100);
+            return;
         }
-      }
+
+        action();
     }
-    virtual void pressed() {
-      if (card.state) {
-        ejector.eject();
-      } else {
-        ejector.load();
-      }
+    virtual void hold() {
+        if (digitalRead(POWER_PIN) == HIGH) {
+            powerOff("button held");
+        }
     }
-    virtual void hold() {}
-    virtual void released() {}
 };
 
-Button button("Button", BUTTON_PIN, LOW);
+PowerButton button(BUTTON_PIN);
 
 //
 // Dealer
@@ -111,6 +119,15 @@ class Dealer : public IdleComponent {
     Dealer() : IdleComponent("Dealer", 1) {
     }
 
+    bool verify() 
+    {
+        if (!ejector.load()) {
+          return false;
+        }
+        dealer.reset(DEALER_VERIFYING);
+        return true;
+    }
+
     virtual void init()
     {
       www.add("/verify", [] (HTTP &http) {
@@ -119,14 +136,13 @@ class Dealer : public IdleComponent {
           http.close();
           return;
         }
-        if (!ejector.load()) {
+        if (!dealer.verify()) {
           http.header(404, "Load failed");
           http.close();
-          return;
+        } else {
+          http.header(200, "Verification Started");
+          http.close();
         }
-        http.header(200, "Verification Started");
-        http.close();
-        dealer.reset(DEALER_VERIFYING);
       });
 
       www.add("/deal", [] (HTTP &http) {
@@ -174,6 +190,7 @@ class Dealer : public IdleComponent {
       }
       this->state = state;
       this->last_tm = millis();
+      active_tm = millis();
     }
 
     int owner_position(int card)
@@ -205,6 +222,7 @@ class Dealer : public IdleComponent {
         dprintf("dealer: done after %d cards", deal_count);
         reset(DEALER_IDLE);
         tone(BUZZER_PIN, NOTE_E5, 500);
+        active_tm = millis();
  }
 
     void deal_failed(const char *reason)
@@ -213,6 +231,7 @@ class Dealer : public IdleComponent {
         dprintf("dealer: failed after %d cards, %s", deal_count, reason);
         reset(DEALER_IDLE);
         tone(BUZZER_PIN, NOTE_A4, 500);
+        active_tm = millis();
     }
 
     void deal_summary()
@@ -322,6 +341,22 @@ class Dealer : public IdleComponent {
 
 Dealer dealer;
 
+void action()
+{
+  switch (current_action) {
+    case ACTION_VERIFY:
+      dealer.verify();
+      break;
+    case ACTION_ONE_CARD:
+      if (card.state) {
+        ejector.eject();
+      } else {
+        ejector.load();
+      }
+      break;
+  }
+}
+
 //
 // Animation
 //
@@ -334,7 +369,6 @@ class LightAnimation : public IdleComponent {
     int report_cnt = 0;
     unsigned char cam_res[6];
     bool cam_connected = false;
-    unsigned long active_tm = 0;
   public:
     LightAnimation() : IdleComponent("LightAnimation", 30) 
     {
@@ -359,13 +393,27 @@ class LightAnimation : public IdleComponent {
 
       // check active state
       if (button.state || motor1.current_speed != 0 || motor2.current_speed != 0) {
-          if (active_tm == 0) {
-              ring.set_brightness(100, 500);
-          }
           active_tm = now;
-      } else if (active_tm != 0 && active_tm + 2*1000 < now) {
-          active_tm = 0;
+      }
+      if (active_state == 2 && now >= active_tm + 30*1000) {
+          // shutdown due to inactivity
+          active_state = 3;
+          powerOff("time out", true);
+      } else if (active_state == 1 && now >= active_tm + 20*1000) {
+          // progressively dim
+          dprintf("dim to 5%%");
+          active_state = 2;
           ring.set_brightness(5, 5*1000);
+      } else if (active_state == 0 && now >= active_tm + 5*1000) {
+          // progressively dim
+          dprintf("dim to 25%%");
+          active_state = 1;
+          ring.set_brightness(25, 5*1000);
+      } else if (active_state > 0 && now <= active_tm + 5*1000) {
+          // back to active
+          dprintf("back on");
+          ring.set_brightness(100, 500);
+          active_state = 0;
       }
 
       // start/stop eject animation
@@ -484,7 +532,8 @@ void setup()
   init_all("Dealer2024");
   digitalWrite(M_ENABLE, HIGH);
   tone(BUZZER_PIN, NOTE_C6, 250);
-
+  active_tm = millis();
+  active_state = 0;
 }
 
 void loop() 
