@@ -1,6 +1,6 @@
 // (c)2024, Arthur van Hoff, Artfahrt Inc.
 
-#include "deal.h"
+#include "board.h"
 #include "camera.h"
 #include "webserver.h"
 

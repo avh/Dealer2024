@@ -2,7 +2,7 @@
 
 #include "eject.h"
 #include "bus.h"
-#include "deal.h"
+#include "board.h"
 
 extern BusMaster bus;
 
@@ -141,7 +141,7 @@ void Ejector::idle(unsigned long now)
             state = EJECT_LOADING;
             card_tm = card.last_tm;
             eject_tm = now;
-            dprintf("loading after eject");
+            //dprintf("loading after eject");
         } else if (now > eject_tm + 500) {
             state = EJECT_FAILED;
             motor1.stop();

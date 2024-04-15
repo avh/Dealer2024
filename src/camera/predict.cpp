@@ -5,7 +5,7 @@
 #include <tensorflow/lite/micro/micro_mutable_op_resolver.h>
 #include <esp_heap_caps.h>
 #include "card_model.h"
-#include "deal.h"
+#include "board.h"
 #include "camera.h"
 
 bool initialized = false;

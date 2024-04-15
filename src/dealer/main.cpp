@@ -1,7 +1,7 @@
 // (c)2024, Arthur van Hoff, Artfahrt Inc.
 
 #include "util.h"
-#include "deal.h"
+#include "board.h"
 #include "bus.h"
 #include "motor.h"
 #include "angle.h"
@@ -23,13 +23,13 @@ Motor rotator("Rotator", MR_PIN1, MR_PIN2, 400, 200);
 AngleSensor angle("Angle", rotator);
 IRSensor card("Card", CARD_PIN, HIGH);
 Ejector ejector("Ejector");
-//LightRing<RING_PIN> ring("Ring", 9, 16, 75, 2);
 LightRing<RING_PIN> ring("Ring", 21, 36, 50, 5);
 WebServer www;
 unsigned long active_tm = 0;
 int active_state = 0;
 
 enum ActionEnum {
+  ACTION_HONOURS,
   ACTION_VERIFY,
   ACTION_ONE_CARD,
   ACTION_COUNT,
@@ -109,7 +109,7 @@ extern class Dealer dealer;
 class Dealer : public IdleComponent {
   public:
     DealerState state = DEALER_IDLE;
-    Deal deal;
+    Board board;
     int deal_count = 0;
     float deal_position = -1;
     int card_count[DECKLEN];
@@ -128,54 +128,60 @@ class Dealer : public IdleComponent {
         return true;
     }
 
-    virtual void init()
+    bool deal(Board &cards)
     {
-      www.add("/verify", [] (HTTP &http) {
         if (card.state || dealer.state != DEALER_IDLE) {
-          http.header(404, "Invalid State, Card Present or Busy");
-          http.close();
-          return;
+          return false;
         }
-        if (!dealer.verify()) {
-          http.header(404, "Load failed");
-          http.close();
-        } else {
-          http.header(200, "Verification Started");
-          http.close();
-        }
-      });
-
-      www.add("/deal", [] (HTTP &http) {
-        String cards = http.param["deal"];
-        if (!dealer.deal.parse(cards.c_str())) {
-          http.header(200, "Cards not Parsed Correctly");
-          http.close();
-          return;
-        }
-        dealer.deal.debug();
-        if (card.state || dealer.state != DEALER_IDLE) {
-          http.header(404, "Invalid State, Card Present or Busy");
-          http.close();
-          return;
-        }
-
-        // load first card
+        board = cards;
+        board.debug();
         if (!ejector.load()) {
-          http.header(404, "Load Failed");
-          http.close();
-          return;
+          return false;
         }
-
-        http.header(200, "Dealing Started");
-        http.close();
-
-        // start dealing
         dealer.reset(DEALER_DEALING);
-
-        // start turning to the correct position for the first card
         dealer.deal_position = dealer.owner_position(ejector.loaded_card);
         angle.turnTo(dealer.deal_position);
-      });
+        return true;
+    }
+
+    virtual void init()
+    {
+        www.add("/verify", [] (HTTP &http) {
+            if (card.state || dealer.state != DEALER_IDLE) {
+                http.header(404, "Invalid State, Card Present or Busy");
+                http.close();
+                return;
+            }
+            if (!dealer.verify()) {
+                http.header(404, "Load failed");
+                http.close();
+            } else {
+                http.header(200, "Verification Started");
+                http.close();
+            }
+        });
+
+        www.add("/deal", [] (HTTP &http) {
+            String cards = http.param["deal"];
+            Board board;
+            if (!board.parse(cards.c_str())) {
+                http.header(200, "Cards not Parsed Correctly");
+                http.close();
+                return;
+            }
+            if (card.state || dealer.state != DEALER_IDLE) {
+                http.header(404, "Invalid State, Card Present or Busy");
+                http.close();
+                return;
+            }
+            if (dealer.deal(board)) {
+                http.header(200, "Dealing Started");
+                http.close();
+            } else {
+                http.header(404, "Deal Failed");
+                http.close();
+            }
+        });
     }
 
     void reset(DealerState state = DEALER_IDLE)
@@ -195,7 +201,7 @@ class Dealer : public IdleComponent {
 
     int owner_position(int card)
     {
-      return deal.owner[card] * 35;
+      return board.owner[card] * 35;
     }
 
     bool card_ready(int card)
@@ -344,6 +350,14 @@ Dealer dealer;
 void action()
 {
   switch (current_action) {
+    case ACTION_HONOURS: {
+      Board board;
+      for (int cs = 0 ; cs < DECKLEN ; cs++) {
+        board.deal(cs, CARD(cs) >= JACK ? EAST : NORTH);
+      }
+      dealer.deal(board);
+      break;
+    }
     case ACTION_VERIFY:
       dealer.verify();
       break;

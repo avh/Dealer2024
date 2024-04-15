@@ -8,6 +8,11 @@
 //
 static BusSlave *client = NULL;
 
+bool hasPower() 
+{
+    return digitalRead(POWER_PIN) == HIGH;
+}
+
 static void handleReceiveCommand(int len) 
 {
     BusSlave::Buffer cmd(len);
@@ -86,11 +91,11 @@ bool BusMaster::request(uint8_t addr, const unsigned char *req, int reqlen, unsi
     Wire.write(req, reqlen);
     int error = Wire.endTransmission();
     if (error != 0) {
-        if (last_error_addr != addr) {
+        if (last_error_addr != addr && hasPower()) {
             dprintf("bus: 0x%02x, error in endTransmission, %d", addr, error);
-            last_error_addr = addr;
-            return false;
         }
+        last_error_addr = addr;
+        return false;
     } else {
         //dprintf("bus: 0x%02x, sent 0x%02x %d, reslen=%d", addr, req[0], reqlen, reslen);
     }
@@ -98,22 +103,22 @@ bool BusMaster::request(uint8_t addr, const unsigned char *req, int reqlen, unsi
         //delay(5);
         int n = Wire.requestFrom(int(addr), reslen);
         if (n != reslen) {
-            if (last_error_addr != addr) {
+            if (last_error_addr != addr && hasPower()) {
                 dprintf("bus: 0x%02x, error, requested %d, got %d", addr, reslen, n);
-                last_error_addr = addr;
-                for (int i = 0 ; i < reslen ; i++) {
-                    res[i] = 0;
-                }
+            }
+            last_error_addr = addr;
+            for (int i = 0 ; i < reslen ; i++) {
+                res[i] = 0;
             }
             for (int i = 0 ; i < n ; i++) {
                 Wire.read();
             }
-            last_error_addr = addr;
             return false;
         }
         //dprintf("reading %d bytes", reslen);
         Wire.readBytes(res, reslen);
         Wire.flush();
     }
+    last_error_addr = -1;
     return true;
 }
